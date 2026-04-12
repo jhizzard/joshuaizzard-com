@@ -182,11 +182,11 @@ const comingSoon: Project[] = [
     links: [],
   },
   {
-    title: "DeepSurv",
-    tagline: "Predict subscription lifetime with survival analysis",
+    title: "TenuraML",
+    tagline: "Predict subscription lifetime with deep survival analysis",
     description:
-      "Deep learning survival model that predicts when a subscriber will churn, enabling dynamic pricing and retention interventions. Based on the DeepSurv architecture.",
-    tech: ["Python", "PyTorch", "Survival analysis"],
+      "Deep learning survival framework that predicts when a subscriber will churn, enabling dynamic pricing and retention interventions. Extends the classical survival analysis architecture with novel contributions for subscription economics.",
+    tech: ["Python", "PyTorch", "Survival analysis", "Kaplan-Meier"],
     status: "Coming soon",
     statusColor: "purple",
     links: [],
