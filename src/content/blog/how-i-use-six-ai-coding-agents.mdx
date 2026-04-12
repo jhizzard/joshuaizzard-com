@@ -1,0 +1,54 @@
+---
+title: "How I run six AI coding agents simultaneously"
+date: "2026-04-08"
+description: "Claude Code, Gemini CLI, and four terminal panels. Here's the workflow that made me build TermDeck."
+tags: ["ai-agents", "termdeck", "workflow", "developer-tools"]
+draft: false
+---
+
+On any given afternoon, I have four to six AI coding agents running at the same time. One is refactoring an auth module. One is running a dev server. One is tailing production logs. One is writing tests. One is building a feature in an entirely different project. This isn't hypothetical. This is Tuesday.
+
+The problem isn't running them. The problem is knowing what they're all doing.
+
+## The tmux ceiling
+
+For a long time, tmux was the answer. Split panes, named windows, prefix keys. It works. But when you have six panes of monochrome terminal output, every single one looks the same. I can't tell at a glance which agent is thinking, which finished five minutes ago and is waiting for input, and which hit an error ten minutes ago and is just sitting there while I waste time on something else.
+
+To figure out the state of any given agent, I have to cycle through tabs, scroll through output, read the last few lines, and mentally reconstruct the context. Multiply that by six terminals and it becomes a real tax on attention. I was spending more time managing the agents than benefiting from them.
+
+## The Bloomberg parallel
+
+Before I was a developer, I worked in finance. I had six to eight Bloomberg terminals on my desk. Each screen showed different data -- equities, fixed income, FX, derivatives -- but every screen self-described its content. Status bars at the top. Color-coded alerts. Position summaries. Price movements highlighted in red or green. You never had to guess what a screen was showing you. You never had to read raw data to figure out the state of the world.
+
+Developer tooling has nothing like this. We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text. It's like watching Bloomberg data scroll by in a raw TCP stream.
+
+That comparison kept nagging at me until I built something about it.
+
+## What I built
+
+TermDeck is a browser-based terminal dashboard. Each terminal panel is a real PTY -- full terminal emulation, not a pseudo-shell -- but wrapped in a metadata layer that tells you what's happening without reading the output.
+
+Every panel has a status dot: green for active, purple for thinking, amber for idle, red for errored. The server watches PTY output and detects what type of process is running -- Claude Code, Gemini CLI, a Python server, a plain shell. Project tags show which codebase a terminal belongs to. A metadata strip displays the last command run and any detected ports. And each terminal gets its own theme, so visual differentiation is instant.
+
+## The six-panel workflow
+
+Here's what my actual working layout looks like. I open TermDeck, switch to the 3x2 grid, and launch six sessions:
+
+- **Panel 1:** Claude Code refactoring the auth module. Tokyo Night theme. Project tag reads "api-server." Status dot is purple -- it's thinking.
+- **Panel 2:** Dev server. Catppuccin theme. The metadata strip shows "Serving on :8080" and a request counter ticking up as the frontend hits the API.
+- **Panel 3:** Test suite. Dracula theme. Green PASS markers scrolling. If something fails, the status dot turns red and I see it immediately.
+- **Panel 4:** Git operations. Nord theme. Staging changes, reviewing diffs.
+- **Panel 5:** Production log tail. Gruvbox Dark. Log levels are color-coded. I'm watching for anomalies while the refactor runs.
+- **Panel 6:** Frontend build. Rose Pine Dawn -- the light theme -- so it's visually distinct from everything else. Vite output streaming.
+
+The effect is what I call the control room. I can see the state of six workstreams at a glance. When the test suite panel turns red, I notice within seconds. When Claude Code's status dot shifts from purple to green, I know it's done thinking and is editing files. I don't have to check. The dashboard tells me.
+
+## What's coming
+
+TermDeck already handles the visual layer, but the next pieces are about intelligence. Rumen is an async learning system that watches session patterns over time -- which commands you run together, which errors recur, which projects you context-switch between. A control panel with Yes/No buttons for AI permission prompts is on the roadmap, so I can approve file edits across agents without switching focus. And the "Ask about this terminal" input field will wire into cross-session memory, letting me query what happened in a terminal three hours ago.
+
+## Why this matters
+
+AI coding agents are becoming the norm. Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot -- the list keeps growing. As these tools get better, the bottleneck shifts. It's no longer about writing code. It's about orchestrating agents. Knowing which one needs attention. Knowing which one is blocked. Knowing which one just finished and is ready for the next task.
+
+The tool for that orchestration doesn't really exist yet. We're using tmux and hoping for the best. TermDeck is my attempt to build the control room that multi-agent development actually requires -- the Bloomberg terminal for people who run code instead of trades.

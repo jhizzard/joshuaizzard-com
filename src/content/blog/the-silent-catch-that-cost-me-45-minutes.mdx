@@ -1,0 +1,116 @@
+---
+title: "The silent catch{} that cost me 45 minutes"
+date: "2026-03-19"
+description: "A bare catch block with no logging turned a simple Prisma runtime error into a 45-minute scavenger hunt on Vercel. Never again."
+tags: ["debugging", "next-js", "vercel", "anti-patterns"]
+draft: false
+---
+
+Last Tuesday I deployed a Next.js app to Vercel, hit the login page, entered valid credentials, and watched the request return a 500. I opened the Vercel function logs expecting a stack trace. There was nothing. No error, no warning, no indication that anything had gone wrong at all. The request simply vanished into a 500-shaped void.
+
+What followed was 45 minutes I will never get back.
+
+## The scavenger hunt
+
+My first instinct was environment variables. Vercel's dashboard showed all the expected keys — `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`. I copied them into a local `.env`, ran the route locally, and it worked fine. So not env vars.
+
+Next I checked the database connection. I opened Supabase, ran a raw query against the users table, got results. The connection string was correct. The database was up.
+
+I rebuilt the deployment from scratch. Same 500. No logs.
+
+I started adding temporary diagnostics. I changed the route to return the actual error in the response body — something I would never do in production, but I was desperate:
+
+```ts
+} catch (err) {
+  return NextResponse.json({ error: String(err) }, { status: 500 });
+}
+```
+
+That gave me my answer in one request:
+
+```
+PrismaClientInitializationError: Unable to require `libquery_engine-debian-openssl-3.0.x.so.node`
+```
+
+A Prisma query engine binary mismatch. My local build used the macOS binary. Vercel runs Linux. The fix was a one-line addition to `schema.prisma`:
+
+```prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+```
+
+Regenerate the client, redeploy, login works. A five-minute fix that took 45 minutes to find.
+
+## The actual root cause
+
+The Prisma error was the proximate cause. The real cause was this pattern, which I had written months earlier and never thought about again:
+
+```ts
+export async function POST(req: Request) {
+  try {
+    const { email, password } = await req.json();
+    const user = await prisma.user.findUnique({ where: { email } });
+    // ... authentication logic
+    return NextResponse.json({ token });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+```
+
+Look at the catch block. No error parameter. No `console.error`. The error is caught, discarded, and replaced with a generic message. The route does exactly what it is told to do: fail silently.
+
+This is the programming equivalent of unplugging your smoke detector because the beeping is annoying.
+
+## The fix
+
+The immediate fix was mechanical. Every catch block in every API route got the same treatment:
+
+```ts
+} catch (err) {
+  console.error('[auth/login] error:', err);
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+}
+```
+
+Two changes. First, the catch clause now captures the error. Second, `console.error` logs it with a tag prefix that tells you exactly which route threw it. On Vercel, `console.error` writes to the function logs. The error would have been sitting right there in the dashboard if I had logged it in the first place.
+
+## The standard
+
+I adopted a `[tag]` prefix convention across all my projects. Every module gets a short, greppable label:
+
+- `[db]` for database operations
+- `[auth]` for authentication routes
+- `[api/resource]` for specific API endpoints
+- `[ws]` for WebSocket handlers
+- `[rag]` for RAG integration layers
+- `[config]` for configuration loading
+- `[cli]` for CLI entry points
+- `[client]` for client-side errors
+
+When something breaks in production, I run `vercel logs --filter '[db]'` and get every database-related error in chronological order. No scrolling through noise. No guessing which module threw the exception.
+
+## The lint rule
+
+Fixing my own code was not enough. I needed to make sure this pattern could never reappear in any project I work on. I added an ESLint rule that flags bare catch blocks with no logging:
+
+```js
+// eslint-plugin-local-rules
+"no-silent-catch": {
+  create(context) {
+    return {
+      CatchClause(node) {
+        if (!node.param) {
+          context.report({ node, message: "Catch block must capture the error parameter." });
+        }
+      }
+    };
+  }
+}
+```
+
+This runs in CI on every pull request. A bare `catch {}` with no parameter fails the build before it ever reaches production.
+
+The week I added this rule, I ran it against my other active projects. I found 14 bare catch blocks across four files in another project. The CI now catches them before they can hide another bug.

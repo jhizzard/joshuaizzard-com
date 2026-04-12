@@ -1,0 +1,179 @@
+---
+title: "Prisma + Vercel + Supabase: the three pitfalls nobody warns you about"
+date: "2026-04-10"
+description: "Each one took a full debug cycle. engineType, IPv6 poolers, and URL-encoded passwords — check all three before your first deploy."
+tags: ["prisma", "vercel", "supabase", "deployment", "debugging"]
+draft: false
+---
+
+I just shipped a Next.js app on the Prisma v6 + Vercel + Supabase stack. The local dev experience was flawless. The first production deploy was not. Three separate issues, each unrelated to the others, each requiring its own debug cycle before I found the fix. None of them showed up in any single tutorial or migration guide.
+
+Here they are, in the order I hit them.
+
+## Pitfall 1: Prisma Query Engine not found on Vercel
+
+### Symptom
+
+The build succeeds. Vercel shows a green checkmark. You hit your first API route and get a 500:
+
+```
+Cannot find module '/var/task/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node'
+```
+
+Or sometimes the slightly more cryptic variant:
+
+```
+could not locate the Query Engine for runtime "rhel-openssl-3.0.x"
+```
+
+### Root cause
+
+Prisma v6 introduced the `prisma-client` generator as a replacement for `prisma-client-js`. If you use a custom `output` path with the new generator, it emits `import * as runtime from "@prisma/client/runtime/library"` by default. That `library` runtime expects a platform-specific native binary — and Vercel's bundler does not include it in the deployed function.
+
+The old workaround of adding `binaryTargets = ["native", "rhel-openssl-3.0.x"]` does not apply here. The new generator needs a fundamentally different approach: you switch to the JavaScript-based client engine, which runs without any native binary at all.
+
+### Fix
+
+Three things, all required. Miss any one of them and you get a different error.
+
+**1. Set `engineType = "client"` in your generator block:**
+
+```prisma
+// schema.prisma
+generator client {
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+```
+
+**2. Install the driver adapter, version-pinned to your Prisma major:**
+
+```bash
+npm install @prisma/adapter-pg@^6.19.3 pg
+```
+
+Do not install `@prisma/adapter-pg@latest` without checking. At the time of writing, `latest` resolves to 7.x, which is incompatible with Prisma 6.x. The mismatch produces a silent failure where queries return `undefined` instead of throwing.
+
+**3. Create `prisma.config.ts` at the project root:**
+
+```ts
+// prisma.config.ts
+import path from "node:path";
+import type { PrismaConfig } from "prisma";
+
+export default {
+  earlyAccess: true,
+  schema: path.join(__dirname, "prisma", "schema.prisma"),
+} satisfies PrismaConfig;
+```
+
+**4. Wire up the adapter in your database client:**
+
+```ts
+// src/lib/db.ts
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@/generated/prisma";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({ adapter });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+```
+
+The key detail: `new PrismaClient({ adapter })`. Without this, Prisma still tries to load the native engine at runtime, even if `engineType = "client"` is set in the schema. The adapter is what actually activates the JS engine path.
+
+After all three changes: `npx prisma generate`, redeploy, and the engine error disappears.
+
+## Pitfall 2: Supabase Dedicated Pooler is IPv6-only
+
+### Symptom
+
+The Prisma engine issue is fixed. You redeploy. Now you get:
+
+```
+Can't reach database server at `db.xxxxxxxxxxxx.supabase.co:6543`
+```
+
+The database is up. You can connect from your local machine. But Vercel cannot reach it.
+
+### Root cause
+
+If you are on Supabase Pro, the default connection string in the "Connect" modal uses the **Dedicated Pooler**. This pooler resolves to an IPv6 address. Vercel serverless functions run in an IPv4-only network. The connection attempt never completes — it is not a timeout, it is a routing failure.
+
+This is not documented prominently on either side. Supabase shows the Dedicated Pooler as the recommended option. Vercel does not mention IPv6 limitations in their Supabase integration guide.
+
+### Fix
+
+In the Supabase dashboard, open your project, go to **Settings > Database > Connection string**, and toggle **Use IPv4 connection (Shared Pooler)**. The hostname changes from `db.<ref>.supabase.co` to `aws-0-<region>.pooler.supabase.com`. Use that URL as your `DATABASE_URL` in Vercel.
+
+Keep the direct connection string (the `db.<ref>.supabase.co` one on port 5432) as your `DIRECT_URL` for migrations. Migrations run from your local machine, which can reach IPv6 endpoints. Production queries go through the shared pooler.
+
+```env
+# Vercel environment variables
+DATABASE_URL="postgresql://postgres.xxxx:PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.xxxx:PASSWORD@db.xxxxxxxxxxxx.supabase.co:5432/postgres"
+```
+
+## Pitfall 3: URL-encode the database password
+
+### Symptom
+
+You have switched to the shared pooler. You redeploy. Now you get:
+
+```
+Error: invalid port number in database URL
+```
+
+Or sometimes:
+
+```
+Error validating datasource: the URL must start with the protocol `postgresql://` or `postgres://`
+```
+
+The URL looks correct when you eyeball it. The port is clearly `6543`. What is going on?
+
+### Root cause
+
+Your Supabase database password contains special characters — brackets, ampersands, plus signs, slashes, or hash marks. These characters have meaning in URL syntax. When Prisma parses the connection string, the special characters break the URL structure. A `#` truncates everything after it. A `/` gets interpreted as a path separator. A `+` becomes a space.
+
+The Supabase dashboard copies the password into the connection string verbatim, without encoding it.
+
+### Fix
+
+URL-encode the password before pasting it into your connection string. Here is a one-liner:
+
+```bash
+python3 -c "import urllib.parse, getpass; print(urllib.parse.quote(getpass.getpass('Pwd: '), safe=''))"
+```
+
+This prompts for the password without echoing it, then prints the encoded version. Replace the raw password in your `DATABASE_URL` with the encoded output.
+
+For example, if your password is `my+pass#word/123`, the encoded version is `my%2Bpass%23word%2F123`. The connection string becomes:
+
+```
+postgresql://postgres.xxxx:my%2Bpass%23word%2F123@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+```
+
+## The checklist
+
+Check all three before your first deploy. Each one costs a debug cycle if you discover it in production.
+
+1. **Engine type:** `engineType = "client"` in `schema.prisma`, `@prisma/adapter-pg` pinned to your Prisma major, adapter passed to `new PrismaClient()`.
+2. **IPv4 pooler:** Use the Shared Pooler URL (`aws-0-<region>.pooler.supabase.com`), not the Dedicated Pooler.
+3. **Encoded password:** Run your password through `urllib.parse.quote` before embedding it in the URL.
+
+Three issues, three fixes, zero ambiguity. Save yourself the three hours I did not.
