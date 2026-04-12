@@ -420,15 +420,18 @@ export default function Home() {
             /about
           </div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-8">
-            Concert hall &rarr; trading floor &rarr; terminal.
+            Moscow &rarr; Chicago &rarr; Wall Street &rarr; terminal.
           </h2>
           <div className="space-y-5 text-base sm:text-lg leading-relaxed text-foreground/90">
             <p>
-              Fifteen years managing investment strategies in Nashville.
-              Formative years staring at Bloomberg terminals &mdash; orange on
-              black, four screens deep. Trained as a concert pianist before
-              discovering that trading desks and keyboard instruments require the
-              same obsessive pattern recognition.
+              MA in Piano Performance from the Moscow State Conservatory. MBA
+              in Quantitative Finance and Accounting from the University of
+              Chicago Booth School of Business. Fifteen years managing
+              investment strategies &mdash; formative years staring at Bloomberg
+              terminals, orange on black, six to eight screens deep. Trained as
+              a concert pianist before discovering that trading desks and
+              keyboard instruments demand the same thing: obsessive attention to
+              detail and pattern recognition within complex structures.
             </p>
             <p>
               Currently CEO of{" "}
