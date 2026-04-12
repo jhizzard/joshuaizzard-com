@@ -420,21 +420,19 @@ export default function Home() {
             /about
           </div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-8">
-            Moscow &rarr; Chicago &rarr; Wall Street &rarr; terminal.
+            Wyoming &rarr; Moscow &rarr; Chicago &rarr; terminal.
           </h2>
           <div className="space-y-5 text-base sm:text-lg leading-relaxed text-foreground/90">
             <p>
-              MA in Piano Performance from the Moscow State Conservatory. MBA
-              in Quantitative Finance and Accounting from the University of
-              Chicago Booth School of Business. Fifteen years managing
-              investment strategies &mdash; formative years staring at Bloomberg
-              terminals, orange on black, six to eight screens deep. Trained as
-              a concert pianist before discovering that trading desks and
-              keyboard instruments demand the same thing: obsessive attention to
-              detail and pattern recognition within complex structures.
+              Born in Wyoming. Studied piano performance at the Moscow State
+              Conservatory, then quantitative finance and accounting at Chicago
+              Booth. Fifteen years managing investment strategies &mdash;
+              Bloomberg terminals, orange on black, six screens deep. Concert
+              stages and trading floors demand the same thing: obsessive detail
+              and pattern recognition inside complex structures.
             </p>
             <p>
-              Currently CEO of{" "}
+              Now CEO of{" "}
               <a
                 href="https://unagiscooters.com"
                 target="_blank"
@@ -452,13 +450,13 @@ export default function Home() {
               >
                 Nashville International Chopin Piano Competition
               </a>
-              . Building developer tooling and AI systems on the side &mdash;
-              the kind of infrastructure I wished existed when I started coding.
+              . Building developer tooling and AI systems &mdash; the
+              infrastructure I wished existed when I started coding.
             </p>
             <p>
               Interested in interpretable AI, persistent memory for LLMs, and
-              the question of whether machines can learn the way developers do
-              &mdash; not from training data, but from experience.
+              whether machines can learn the way developers do &mdash; not from
+              training data, but from experience.
             </p>
           </div>
         </div>
