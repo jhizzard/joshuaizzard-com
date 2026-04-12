@@ -109,9 +109,9 @@ const shipped: Project[] = [
   },
   {
     title: "Healthcare Marketplace",
-    tagline: "Real-time bidding marketplace for healthcare services",
+    tagline: "Healthcare marketplace with AI-powered price discovery",
     description:
-      "Full-stack marketplace where patients find and compare healthcare providers. 194K data points, 12K locations, AI-powered service matching with pgvector embeddings, Stripe Connect for provider payouts. Built solo in 6 weeks.",
+      "Full-stack marketplace where patients find and compare healthcare providers through an AI-driven price discovery mechanism. 194K data points, 12K locations, pgvector-powered service matching, Stripe Connect for provider payouts. Built solo in 6 weeks.",
     tech: [
       "Next.js 16",
       "Supabase",

@@ -1,16 +1,16 @@
 ---
 title: "Building a healthcare marketplace in six weeks"
 date: "2026-02-25"
-description: "194K data points, 12K locations, real-time bidding, AI-powered matching, and Stripe Connect — solo, in six weeks. Here's how."
+description: "194K data points, 12K locations, AI-powered price discovery, smart matching, and Stripe Connect — solo, in six weeks. Here's how."
 tags: ["marketplace", "next-js", "supabase", "stripe", "ai"]
 draft: false
 ---
 
-I recently shipped a full-stack healthcare services marketplace — solo, **in six weeks**. Patients find providers, compare pricing with real confidence scores, and submit service requests that providers bid on in real time. The platform ingests **194K price data points** across **12K provider locations**, runs AI-powered search with pgvector embeddings, handles payments through Stripe Connect, and serves three distinct portals from a single Next.js codebase.
+I recently shipped a full-stack healthcare services marketplace — solo, **in six weeks**. Patients find providers, compare pricing with real confidence scores, and submit service requests through an AI-driven price discovery mechanism. The platform ingests **194K price data points** across **12K provider locations**, runs AI-powered search with pgvector embeddings, handles payments through Stripe Connect, and serves three distinct portals from a single Next.js codebase.
 
 It was the most technically dense project I have built, and also the most fun. Here is how it came together.
 
-<PullQuote>194K data points, 12K locations, real-time bidding, AI-powered matching, and Stripe Connect — solo, in six weeks.</PullQuote>
+<PullQuote>194K data points, 12K locations, AI-powered price discovery, smart matching, and Stripe Connect — solo, in six weeks.</PullQuote>
 
 ---
 
@@ -54,15 +54,15 @@ I built a complexity classifier with 27 regex patterns and 19 intent overrides t
 
 **The application serves three distinct experiences from a single Next.js codebase.**
 
-A patient portal for searching and submitting service requests, a provider portal for managing profiles and bidding on requests, and an admin portal for data validation, analytics, and platform management. All three live in a single Next.js 16 App Router codebase using route groups — `(patient)`, `(provider)`, `(admin)` — which keeps shared logic centralized while giving each portal its own layout and navigation.
+A patient portal for searching and submitting service requests, a provider portal for managing profiles and responding to requests, and an admin portal for data validation, analytics, and platform management. All three live in a single Next.js 16 App Router codebase using route groups — `(patient)`, `(provider)`, `(admin)` — which keeps shared logic centralized while giving each portal its own layout and navigation.
 
 ---
 
-## Real-time bidding and payments
+## Price discovery and payments
 
-**When a patient submits a service request, relevant providers see it and can bid in real time.**
+**When a patient submits a service request, the platform's price discovery mechanism matches them with relevant providers and surfaces competitive pricing in real time.**
 
-The bidding engine handles bid validation, ranking, and expiration. Once a patient accepts a bid, Stripe Connect processes the payment using a capture-then-refund pattern — funds are authorized and captured, but the platform holds them through an inspection window so the patient can flag issues or cancel if needed. Providers receive payouts through connected Stripe accounts.
+The matching engine handles provider qualification, pricing validation, ranking by relevance and confidence, and time-based expiration. Once a patient selects a provider, Stripe Connect processes the payment using a capture-then-refund pattern — funds are authorized and captured, but the platform holds them through an inspection window so the patient can flag issues or cancel if needed. Providers receive payouts through connected Stripe accounts.
 
 ---
 
