@@ -50,9 +50,9 @@ const flagship: Project[] = [
   },
   {
     title: "Rumen",
-    tagline: "Async learning layer \u2014 the AI keeps working when you stop",
+    tagline: "The part of the brain that doesn\u2019t sleep",
     description:
-      "Background job that reads your Engram memories, finds cross-project patterns, and surfaces relevant past work proactively. Runs as a Supabase Edge Function on a 15-minute cron. The LLM is stateless. Rumen isn\u2019t.",
+      "Continues reasoning over your work after you close your laptop. Runs as a Supabase Edge Function on a 15-minute cron, finding cross-project patterns, synthesizing insights from weeks of accumulated data, and surfacing them proactively in your next session. The LLM is stateless. Rumen isn\u2019t.",
     tech: ["TypeScript", "Supabase Edge Functions", "pg", "pgvector"],
     status: "Live \u00b7 v0.1.0",
     statusColor: "green",
