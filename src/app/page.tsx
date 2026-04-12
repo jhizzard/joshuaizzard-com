@@ -10,6 +10,11 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import ContactForm from "@/components/ContactForm";
+
+/* ------------------------------------------------------------------ */
+/*  Data                                                               */
+/* ------------------------------------------------------------------ */
 
 type Project = {
   title: string;
@@ -22,39 +27,185 @@ type Project = {
   note?: string;
 };
 
-const projects: Project[] = [
+const flagship: Project[] = [
   {
     title: "TermDeck",
     tagline: "Browser-based terminal multiplexer with AI agent awareness",
     description:
-      "tmux in your browser, but it knows what your AI agents are doing. Real PTYs in 6 grid layouts, per-terminal theming, output analyzer that detects Claude Code / Gemini CLI / Python servers, status dots that tell you what each terminal is doing at a glance. MIT, vanilla JS client, no build step.",
+      "tmux in your browser, but it knows what your AI agents are doing. Real PTYs in 6 grid layouts, per-terminal theming, output analyzer that detects Claude Code / Gemini CLI / Python servers. Status dots show active, thinking, idle, and errored at a glance. MIT, vanilla JS client, no build step.",
     tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite"],
-    status: "Live · v0.1.1",
+    status: "Live \u00b7 v0.1.1",
     statusColor: "green",
     links: [{ label: "GitHub", href: "https://github.com/jhizzard/termdeck" }],
   },
   {
     title: "Engram",
-    tagline: "Developer brain — persistent memory for AI coding sessions",
+    tagline: "Persistent memory for AI coding sessions",
     description:
-      "A Supabase-backed memory layer that records every Claude Code session, command, and decision across all my projects. Hybrid search (keyword + semantic + recency boost) over ~1,000 production memories. Powers TermDeck's upcoming Rumen async learning layer.",
+      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, cross-project recall, and automatic dedup. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.",
     tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
-    status: "Production · internal",
-    statusColor: "blue",
-    links: [],
-    note: "Open-sourcing soon",
+    status: "Live \u00b7 v0.1.0",
+    statusColor: "green",
+    links: [{ label: "GitHub", href: "https://github.com/jhizzard/engram" }],
   },
   {
-    title: "PetVetBid",
-    tagline: "Real-time veterinary care marketplace",
+    title: "Rumen",
+    tagline: "Async learning layer \u2014 the AI keeps working when you stop",
     description:
-      "Full-stack marketplace where pet owners get bids from vets in their area. 194K prices, 12K locations, Stripe Connect, AI-powered service matching. Built in 6 weeks as a solo developer.",
-    tech: ["Next.js 16", "Supabase", "Stripe Connect", "Google Maps", "pgvector"],
-    status: "Demo live",
-    statusColor: "amber",
-    links: [{ label: "Live demo", href: "https://pvb-one.vercel.app" }],
+      "Background job that reads your Engram memories, finds cross-project patterns, and surfaces relevant past work proactively. Runs as a Supabase Edge Function on a 15-minute cron. The LLM is stateless. Rumen isn\u2019t.",
+    tech: ["TypeScript", "Supabase Edge Functions", "pg", "pgvector"],
+    status: "Live \u00b7 v0.1.0",
+    statusColor: "green",
+    links: [{ label: "GitHub", href: "https://github.com/jhizzard/rumen" }],
   },
 ];
+
+const shipped: Project[] = [
+  {
+    title: "Maestro",
+    tagline:
+      "AI-powered event scheduling with constraint satisfaction",
+    description:
+      "Enterprise scheduling engine for multi-day, multi-venue events. OR-Tools CP-SAT solver handles room conflicts, faculty availability, participant preferences, and practice allocation across 23 constraints with a 100/100 fairness score. 12-step pipeline with real-time SSE streaming, NL-first setup wizard, multi-tenant architecture, Zapier/Make connectors, and 461 tests. 28 frontend routes, zero TypeScript errors.",
+    tech: [
+      "Next.js 16",
+      "Python FastAPI",
+      "OR-Tools CP-SAT",
+      "SQLModel",
+      "PostgreSQL",
+      "Claude Haiku",
+    ],
+    status: "Deployed \u00b7 Private",
+    statusColor: "green",
+    links: [],
+    note: "Private repo",
+  },
+  {
+    title: "Podium",
+    tagline:
+      "Application intake and review platform for the Nashville International Chopin Piano Competition",
+    description:
+      "End-to-end pipeline: Wix CMS sync, AI-powered application cleaning (name normalization, repertoire parsing), server-rendered tearsheet PDFs, review catalog with scoring and keyboard navigation, multi-event support. Live in production with real applicants.",
+    tech: ["Next.js 16", "Prisma 6", "Supabase", "React-PDF", "Claude AI"],
+    status: "Live",
+    statusColor: "green",
+    links: [
+      {
+        label: "Live site",
+        href: "https://podium.nashvillechopin.org",
+      },
+    ],
+  },
+  {
+    title: "DOR",
+    tagline: "Deterministic Orchestration Router \u2014 LLM gateway in Rust",
+    description:
+      "Routes AI agent requests across multiple LLM providers with automatic circuit breaker failover. When one provider goes down, traffic cascades to the next healthy provider. Streaming SSE passthrough, per-task routing tiers, health monitoring daemon.",
+    tech: ["Rust", "Axum", "Tokio", "DashMap"],
+    status: "Built \u00b7 Private",
+    statusColor: "blue",
+    links: [],
+    note: "Private repo",
+  },
+  {
+    title: "Healthcare Marketplace",
+    tagline: "Real-time bidding marketplace for healthcare services",
+    description:
+      "Full-stack marketplace where patients find and compare healthcare providers. 194K data points, 12K locations, AI-powered service matching with pgvector embeddings, Stripe Connect for provider payouts. Built solo in 6 weeks.",
+    tech: [
+      "Next.js 16",
+      "Supabase",
+      "Stripe Connect",
+      "Google Maps",
+      "pgvector",
+    ],
+    status: "Shipped \u00b7 Private",
+    statusColor: "amber",
+    links: [],
+    note: "Private",
+  },
+  {
+    title: "iMessage Reader",
+    tagline: "Browse and AI-analyze 1.25M+ iMessages in your browser",
+    description:
+      "Local-only macOS web app that reads Apple\u2019s chat.db directly (read-only VFS), renders conversations with virtual scrolling, and uses Claude for streaming AI analysis with vision support. Google Drive backup with OAuth2 and resumable uploads.",
+    tech: ["Python", "FastAPI", "Claude API", "Google Drive API", "vanilla JS"],
+    status: "Working MVP \u00b7 Private",
+    statusColor: "blue",
+    links: [],
+    note: "Private repo",
+  },
+  {
+    title: "ClaimGuard AI",
+    tagline: "AI-powered detection of customer service claims risk",
+    description:
+      "Monitors customer service tickets in real-time, classifies severity using multi-tier AI analysis, and flags conversations likely to escalate to claims or legal action. Multi-tenant architecture with per-organization model configuration.",
+    tech: ["Next.js", "Prisma", "Supabase", "Gemini AI"],
+    status: "In development \u00b7 Private",
+    statusColor: "blue",
+    links: [],
+    note: "Private repo",
+  },
+  {
+    title: "Claude Gmail Extension",
+    tagline: "AI-powered email assistant as a Chrome extension",
+    description:
+      "Chrome extension that integrates Claude AI into Gmail for intelligent email composition, summarization, and response drafting directly in the inbox.",
+    tech: ["Chrome Extension API", "Claude API", "TypeScript"],
+    status: "Built \u00b7 Private",
+    statusColor: "blue",
+    links: [],
+    note: "Private repo",
+  },
+  {
+    title: "Mail Merge",
+    tagline: "Automated personalized email campaigns",
+    description:
+      "Bulk email tool with template personalization, merge fields, and send scheduling. Handles large recipient lists with rate limiting and delivery tracking.",
+    tech: ["TypeScript", "Resend", "React"],
+    status: "Built \u00b7 Private",
+    statusColor: "blue",
+    links: [],
+    note: "Private repo",
+  },
+];
+
+const comingSoon: Project[] = [
+  {
+    title: "KANLABS",
+    tagline: "Interpretable AI using Kolmogorov-Arnold Networks",
+    description:
+      "Building small language models using KAN architectures that produce interpretable outputs \u2014 including novel solutions to partial differential equations. Applications in quantitative finance, trading models, and scientific computing.",
+    tech: ["Python", "PyTorch", "KAN", "PDE solvers"],
+    status: "Coming soon",
+    statusColor: "purple",
+    links: [],
+  },
+  {
+    title: "DeepSurv",
+    tagline: "Predict subscription lifetime with survival analysis",
+    description:
+      "Deep learning survival model that predicts when a subscriber will churn, enabling dynamic pricing and retention interventions. Based on the DeepSurv architecture.",
+    tech: ["Python", "PyTorch", "Survival analysis"],
+    status: "Coming soon",
+    statusColor: "purple",
+    links: [],
+  },
+  {
+    title: "Capital Structure Arbitrage",
+    tagline: "Quantitative models for relative value trading",
+    description:
+      "Statistical arbitrage models exploiting pricing inefficiencies in a firm\u2019s capital structure \u2014 equity, credit, and derivatives. Connecting the hedge fund experience to modern ML infrastructure.",
+    tech: ["Python", "Quantitative finance", "ML"],
+    status: "Coming soon",
+    statusColor: "purple",
+    links: [],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 const statusDotColor: Record<Project["statusColor"], string> = {
   green: "bg-jz-accent-green",
@@ -70,28 +221,84 @@ const swatches = [
   { color: "bg-jz-accent-amber", label: "Amber" },
 ];
 
+function ProjectCard({ p }: { p: Project }) {
+  return (
+    <Card className="group flex flex-col border-border bg-card transition-colors duration-150 hover:border-[var(--jz-accent-blue)]">
+      <CardHeader>
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className={`h-2 w-2 rounded-full ${statusDotColor[p.statusColor]}`}
+            aria-hidden
+          />
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            {p.status}
+          </span>
+        </div>
+        <CardTitle className="text-xl">{p.title}</CardTitle>
+        <CardDescription className="text-foreground/80">
+          {p.tagline}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {p.description}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {p.tech.map((t) => (
+            <Badge
+              key={t}
+              variant="secondary"
+              className="font-mono text-[10px] tracking-wide"
+            >
+              {t}
+            </Badge>
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter className="flex items-center gap-4">
+        {p.links.length > 0 ? (
+          p.links.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-[var(--jz-accent-blue)] hover:underline"
+            >
+              {l.label} &rarr;
+            </a>
+          ))
+        ) : (
+          <span className="text-sm text-muted-foreground italic">
+            {p.note}
+          </span>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default function Home() {
   return (
     <main className="flex-1">
-      {/* Hero */}
+      {/* ==================== Hero ==================== */}
       <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 pt-24 sm:pt-32 pb-20 sm:pb-28">
         <div className="flex flex-col items-center text-center">
-          <div className="font-mono text-xs tracking-wider text-muted-foreground uppercase mb-6">
-            joshuaizzard.com
-          </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight">
             Joshua Izzard
           </h1>
           <p className="mt-6 max-w-2xl text-lg sm:text-xl text-foreground/90 leading-relaxed">
-            Builder. Developer tooling, AI systems, and the boring
-            infrastructure that makes them work.
+            Concert pianist. Hedge fund manager. CEO. Developer.
           </p>
           <p className="mt-4 max-w-xl text-sm sm:text-base text-muted-foreground">
-            Hedge fund manager turned developer. I build the tools I wished
-            existed.
+            Building the tools I wished existed.
           </p>
 
-          {/* Color swatches — TermDeck signature */}
+          {/* Color swatches */}
           <div
             className="mt-8 flex items-center gap-2"
             aria-label="Color signature"
@@ -107,7 +314,9 @@ export default function Home() {
 
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-3">
             <a
-              className={buttonVariants({ size: "lg" }) + " h-11 px-6 text-base"}
+              className={
+                buttonVariants({ size: "lg" }) + " h-11 px-6 text-base"
+              }
               href="https://github.com/jhizzard"
               target="_blank"
               rel="noreferrer"
@@ -119,9 +328,9 @@ export default function Home() {
                 buttonVariants({ variant: "outline", size: "lg" }) +
                 " h-11 px-6 text-base"
               }
-              href="mailto:jhizzard@gmail.com"
+              href="#contact"
             >
-              Email me
+              Contact
             </a>
           </div>
         </div>
@@ -129,84 +338,79 @@ export default function Home() {
 
       <Separator className="max-w-[1400px] mx-auto" />
 
-      {/* Projects */}
+      {/* ==================== Tier 1: The Developer Brain ==================== */}
       <section
         id="projects"
         className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-20 sm:py-28"
       >
         <div className="mb-12">
           <div className="font-mono text-xs tracking-wider text-muted-foreground uppercase mb-3">
-            /projects
+            /open-source
           </div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-            Things I&apos;m building
+            The Developer Brain
           </h2>
+          <p className="mt-3 text-muted-foreground max-w-2xl">
+            Three tools that compose into a persistent memory system for AI
+            coding agents. Each stands alone. Together they form the dev brain I
+            wished existed.
+          </p>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
-          {projects.map((p) => (
-            <Card
-              key={p.title}
-              className="group flex flex-col border-border bg-card transition-colors duration-150 hover:border-[var(--jz-accent-blue)]"
-            >
-              <CardHeader>
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${statusDotColor[p.statusColor]}`}
-                    aria-hidden
-                  />
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                    {p.status}
-                  </span>
-                </div>
-                <CardTitle className="text-2xl">{p.title}</CardTitle>
-                <CardDescription className="text-foreground/80">
-                  {p.tagline}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {p.description}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-1.5">
-                  {p.tech.map((t) => (
-                    <Badge
-                      key={t}
-                      variant="secondary"
-                      className="font-mono text-[10px] tracking-wide"
-                    >
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="flex items-center gap-4">
-                {p.links.length > 0 ? (
-                  p.links.map((l) => (
-                    <a
-                      key={l.href}
-                      href={l.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-[var(--jz-accent-blue)] hover:underline"
-                    >
-                      {l.label} →
-                    </a>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground italic">
-                    {p.note}
-                  </span>
-                )}
-              </CardFooter>
-            </Card>
+          {flagship.map((p) => (
+            <ProjectCard key={p.title} p={p} />
           ))}
         </div>
       </section>
 
       <Separator className="max-w-[1400px] mx-auto" />
 
-      {/* About */}
+      {/* ==================== Tier 2: Shipped ==================== */}
+      <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-20 sm:py-28">
+        <div className="mb-12">
+          <div className="font-mono text-xs tracking-wider text-muted-foreground uppercase mb-3">
+            /shipped
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+            Production work
+          </h2>
+          <p className="mt-3 text-muted-foreground max-w-2xl">
+            Many of these internal tools are being abstracted into public-facing
+            open source projects or products.
+          </p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+          {shipped.map((p) => (
+            <ProjectCard key={p.title} p={p} />
+          ))}
+        </div>
+      </section>
+
+      <Separator className="max-w-[1400px] mx-auto" />
+
+      {/* ==================== Tier 3: Coming Soon ==================== */}
+      <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-20 sm:py-28">
+        <div className="mb-12">
+          <div className="font-mono text-xs tracking-wider text-muted-foreground uppercase mb-3">
+            /next
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+            Coming soon
+          </h2>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
+          {comingSoon.map((p) => (
+            <ProjectCard key={p.title} p={p} />
+          ))}
+        </div>
+      </section>
+
+      <Separator className="max-w-[1400px] mx-auto" />
+
+      {/* ==================== About ==================== */}
       <section
         id="about"
         className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-20 sm:py-28"
@@ -216,25 +420,58 @@ export default function Home() {
             /about
           </div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-8">
-            Finance → software.
+            Concert hall &rarr; trading floor &rarr; terminal.
           </h2>
-          <p className="text-base sm:text-lg leading-relaxed text-foreground/90">
-            Fifteen years managing investment strategies in Nashville, formative
-            years staring at Bloomberg terminals (orange on black). Left finance
-            to build software, primarily developer tooling and AI systems. I run
-            multiple AI coding agents simultaneously and build the infrastructure
-            they need to work well together. Currently focused on the
-            intersection of agent workflows, persistent memory, and the boring
-            plumbing nobody wants to write.
-          </p>
+          <div className="space-y-5 text-base sm:text-lg leading-relaxed text-foreground/90">
+            <p>
+              Fifteen years managing investment strategies in Nashville.
+              Formative years staring at Bloomberg terminals &mdash; orange on
+              black, four screens deep. Trained as a concert pianist before
+              discovering that trading desks and keyboard instruments require the
+              same obsessive pattern recognition.
+            </p>
+            <p>
+              Currently CEO of{" "}
+              <a
+                href="https://unagiscooters.com"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--jz-accent-blue)] hover:underline"
+              >
+                Unagi Scooters
+              </a>{" "}
+              and the{" "}
+              <a
+                href="https://nashvillechopin.org"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--jz-accent-blue)] hover:underline"
+              >
+                Nashville International Chopin Piano Competition
+              </a>
+              . Building developer tooling and AI systems on the side &mdash;
+              the kind of infrastructure I wished existed when I started coding.
+            </p>
+            <p>
+              Interested in interpretable AI, persistent memory for LLMs, and
+              the question of whether machines can learn the way developers do
+              &mdash; not from training data, but from experience.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
+      <Separator className="max-w-[1400px] mx-auto" />
+
+      {/* ==================== Contact ==================== */}
+      <ContactForm />
+
+      {/* ==================== Footer ==================== */}
       <footer className="mt-auto border-t border-border">
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground font-mono">
-            Built with Next.js + Tailwind + shadcn/ui · © 2026 Joshua Izzard
+            Built with Next.js + Tailwind + shadcn/ui &middot; &copy; 2026
+            Joshua Izzard
           </div>
           <nav className="flex items-center gap-5 text-sm">
             <Link
@@ -245,17 +482,16 @@ export default function Home() {
               GitHub
             </Link>
             <Link
-              href="mailto:jhizzard@gmail.com"
+              href="/blog"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Email
+              Blog
             </Link>
             <Link
-              href="https://x.com/jhizzard"
-              target="_blank"
+              href="#contact"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              X
+              Contact
             </Link>
           </nav>
         </div>

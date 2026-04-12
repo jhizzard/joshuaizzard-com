@@ -5,22 +5,22 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "https://joshuaizzard.com"
   ),
-  title: "Joshua Izzard — Builder",
+  title: "Joshua Izzard — Concert pianist. Hedge fund manager. CEO. Developer.",
   description:
-    "Joshua Izzard — developer tooling, AI systems, and the boring infrastructure that makes them work.",
+    "Building the tools I wished existed. Developer tooling, AI systems, and the boring infrastructure that makes them work.",
   openGraph: {
-    title: "Joshua Izzard — Builder",
+    title: "Joshua Izzard",
     description:
-      "Developer tooling, AI systems, and the boring infrastructure that makes them work.",
+      "Concert pianist. Hedge fund manager. CEO. Developer. Building the tools I wished existed.",
     type: "website",
     url: "https://joshuaizzard.com",
     siteName: "Joshua Izzard",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Joshua Izzard — Builder",
+    title: "Joshua Izzard",
     description:
-      "Developer tooling, AI systems, and the boring infrastructure that makes them work.",
+      "Concert pianist. Hedge fund manager. CEO. Developer. Building the tools I wished existed.",
   },
 };
 

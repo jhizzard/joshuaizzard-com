@@ -1,0 +1,57 @@
+---
+title: "Three tools that compose into a developer brain"
+date: "2026-04-12"
+description: "TermDeck captures. Engram stores. Rumen learns. Together they form the dev brain I wished existed."
+tags: ["termdeck", "engram", "rumen", "developer-tools"]
+draft: false
+---
+
+The large language model is stateless. Every session starts from zero. You explain your architecture again, re-describe your conventions, re-establish the context that took weeks to build. The model does not remember that you fixed this exact bug last Tuesday, that the database migration pattern you settled on uses three specific files, or that the CI pipeline breaks when you forget to update the lockfile.
+
+What if it did not have to start from zero?
+
+## Three tools, one loop
+
+I have been building three open-source tools that solve different parts of this problem. Each stands alone, but they compose into something greater than the sum.
+
+**TermDeck** is the capture layer. It is a browser-based terminal multiplexer that embeds real PTYs in a dashboard with metadata overlays. It watches what every terminal is doing — which agent is thinking, which hit an error, which server is listening on which port. Every event is observable and structured.
+
+**Engram** is the storage layer. It is a Supabase-backed memory system with hybrid search — keyword matching, semantic similarity via pgvector, and recency boosting. It records sessions, commands, decisions, and patterns across every project. When a new Claude Code session starts, it queries Engram for relevant context from past work. Currently running with over a thousand production memories across a dozen projects.
+
+**Rumen** is the learning layer. Named after the digestive chamber where ruminants break down food over time, it runs async synthesis jobs — overnight batch processing that finds patterns across weeks of accumulated data. Which files change together? Which errors recur? Which architectural decisions keep getting revisited? Rumen distills these patterns into insights that surface proactively.
+
+## How they compose
+
+The data flows in one direction: capture, store, learn, surface.
+
+TermDeck pipes structured events — session starts, commands executed, status changes, file edits detected — into Engram. Engram indexes them with full-text search and vector embeddings. Rumen reads from Engram on a schedule, synthesizes cross-session patterns, and writes distilled insights back into Engram's memory store.
+
+The next morning, when a new coding session starts, Engram surfaces both raw memories and Rumen's synthesized insights. The context window is seeded with things you forgot you knew.
+
+The loop closes: today's work becomes tomorrow's context.
+
+## Why three repos, not one
+
+Unix philosophy. Each tool does one thing well.
+
+A developer who wants a better terminal multiplexer can install TermDeck without caring about memory systems. Someone building an MCP memory server can use Engram without needing terminals. A team interested in async pattern synthesis can study Rumen's approach independently.
+
+Each repository gets its own documentation, its own issue tracker, its own release cycle. Users adopt what they need and ignore the rest. Composition happens at the integration layer, not the dependency layer.
+
+## The moat nobody else has built
+
+Obsidian indexes your notes. Mem0 stores memories for AI agents. Neither keeps working when you stop.
+
+The gap in the market is the closed loop — a system that captures passively, stores durably, learns autonomously, and surfaces proactively. No manual tagging, no explicit save commands, no nightly journaling ritual. You write code. The system watches, remembers, and gets smarter.
+
+This is not artificial general intelligence. It is plumbing. Boring, useful, compounding plumbing that makes every session slightly better than the last.
+
+## Get started
+
+All three projects are MIT licensed.
+
+- **TermDeck**: [github.com/jhizzard/termdeck](https://github.com/jhizzard/termdeck) — `npx termdeck` to run
+- **Engram**: open-sourcing soon — persistent memory for AI coding sessions
+- **Rumen**: in development — async learning and pattern synthesis
+
+The developer brain is not a product. It is a stack. Build your own, or use mine.
