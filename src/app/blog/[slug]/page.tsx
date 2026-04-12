@@ -47,6 +47,12 @@ export default async function BlogPostPage({ params }: Props) {
 
   const { frontmatter, content } = post;
 
+  // Find prev/next posts
+  const allPosts = getAllPosts();
+  const currentIndex = allPosts.findIndex((p) => p.slug === slug);
+  const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+  const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+
   return (
     <main className="flex-1">
       <article className="w-full max-w-[720px] mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-20 sm:pb-28">
@@ -141,22 +147,49 @@ export default async function BlogPostPage({ params }: Props) {
           />
         </div>
 
-        {/* Footer */}
-        <div className="mt-20 pt-8 border-t border-border flex items-center justify-between">
-          <Link
-            href="/blog"
-            className="inline-flex items-center gap-1 text-sm text-[var(--jz-accent-blue)] hover:underline font-mono"
-          >
-            &larr; Back to all posts
-          </Link>
-          <div className="text-xs text-muted-foreground font-mono">
-            {new Date(frontmatter.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+        {/* Prev / Next navigation */}
+        <nav className="mt-20 pt-8 border-t border-border">
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              {prevPost && (
+                <Link
+                  href={`/blog/${prevPost.slug}`}
+                  className="group block"
+                >
+                  <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                    &larr; Previous
+                  </span>
+                  <p className="mt-1 text-sm sm:text-base font-semibold text-foreground/80 group-hover:text-[var(--jz-accent-blue)] transition-colors line-clamp-2">
+                    {prevPost.title}
+                  </p>
+                </Link>
+              )}
+            </div>
+            <div className="text-right">
+              {nextPost && (
+                <Link
+                  href={`/blog/${nextPost.slug}`}
+                  className="group block"
+                >
+                  <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                    Next &rarr;
+                  </span>
+                  <p className="mt-1 text-sm sm:text-base font-semibold text-foreground/80 group-hover:text-[var(--jz-accent-blue)] transition-colors line-clamp-2">
+                    {nextPost.title}
+                  </p>
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
+          <div className="mt-8 text-center">
+            <Link
+              href="/blog"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors font-mono"
+            >
+              All posts
+            </Link>
+          </div>
+        </nav>
       </article>
     </main>
   );
