@@ -10,39 +10,55 @@ I run four or five AI coding agents simultaneously most days. Claude Code in one
 
 The fix seemed obvious: put a gateway in front of everything.
 
+---
+
 ## DOR
 
 DOR stands for Deterministic Orchestration Router. It's a local daemon that sits between your agents and the LLM providers. Every agent points at `localhost:8642` instead of hitting provider APIs directly. DOR handles auth, routing, failover, and health tracking. The agents don't need to know or care which provider is having a bad day.
 
 The architecture has two modes. First, there are five provider-specific passthrough endpoints — `/proxy/anthropic/*`, `/proxy/openai/*`, `/proxy/google/*`, `/proxy/xai/*`, `/proxy/ollama/*`. These are transparent proxies. The request goes to the provider you asked for, but wrapped in a circuit breaker. If that provider is down, you get a meaningful error immediately instead of hanging for 30 seconds.
 
-Second, there's a universal routing endpoint at `/v1/route`. You send a request with a task tier — reasoning, coding, fast, or utility — and DOR picks the best available provider based on your configured ladder for that tier. If your reasoning ladder is `[anthropic, google, openai]` and Anthropic is circuit-broken, the request goes to Google without the agent knowing anything happened. Deterministic because the ladder order is explicit in your config. No magic ranking, no cost optimization heuristics. You decide the priority; DOR handles the availability.
+Second, there's a universal routing endpoint at `/v1/route`. You send a request with a task tier — reasoning, coding, fast, or utility — and DOR picks the best available provider based on your configured ladder for that tier. If your reasoning ladder is `[anthropic, google, openai]` and Anthropic is circuit-broken, the request goes to Google without the agent knowing anything happened. **Deterministic because the ladder order is explicit in your config.** No magic ranking, no cost optimization heuristics. You decide the priority; DOR handles the availability.
+
+---
 
 ## Why Rust
 
-I didn't pick Rust for performance. I picked it for reliability. The gateway is the single point of failure for every agent in the stack. If it crashes, allocates itself into an OOM, or panics on a malformed response, everything stops. Not one agent — all of them, simultaneously.
+**I didn't pick Rust for performance. I picked it for reliability.** The gateway is the single point of failure for every agent in the stack. If it crashes, allocates itself into an OOM, or panics on a malformed response, everything stops. Not one agent — all of them, simultaneously.
 
 Rust gave me three things I needed. Memory safety without a garbage collector means no GC pauses and no surprise OOMs when five agents are streaming responses concurrently. The compiled binary starts in under 10 milliseconds, which matters when launchd restarts it. And the type system catches entire categories of bugs at compile time that would be runtime panics in Go or silent failures in Python.
 
-The final binary is about 4MB, compiled with LTO and symbol stripping. It runs as a macOS LaunchDaemon, starts at boot, and auto-restarts if it ever does go down. In practice, it hasn't.
+The final binary is about 4MB, compiled with **LTO and symbol stripping**. It runs as a **macOS LaunchDaemon**, starts at boot, and auto-restarts if it ever does go down. In practice, it hasn't.
+
+<PullQuote>I didn't pick Rust for performance. I picked it for reliability. The gateway is the single point of failure for every agent in the stack.</PullQuote>
+
+---
 
 ## The circuit breaker
 
-The circuit breaker is the core of the whole thing. Each provider gets its own breaker with three states. Closed means healthy — requests flow through normally. If failures hit a configurable threshold (I use 3 consecutive failures), the breaker trips to Open. In the Open state, DOR doesn't even attempt requests to that provider. It returns an error immediately or, on the `/v1/route` endpoint, falls through to the next provider in the ladder.
+The circuit breaker is the core of the whole thing. Each provider gets its own breaker with three states. **Closed** means healthy — requests flow through normally. If failures hit a configurable threshold (I use 3 consecutive failures), the breaker trips to **Open**. In the Open state, DOR doesn't even attempt requests to that provider. It returns an error immediately or, on the `/v1/route` endpoint, falls through to the next provider in the ladder.
 
-After a reset timeout (30 seconds by default), the breaker moves to HalfOpen. DOR sends a single probe request through. If it succeeds, the breaker resets to Closed. If it fails, back to Open for another timeout cycle.
+After a reset timeout (30 seconds by default), the breaker moves to **HalfOpen**. DOR sends a single probe request through. If it succeeds, the breaker resets to Closed. If it fails, back to Open for another timeout cycle.
 
-The state for all breakers lives in a `DashMap` — a lock-free concurrent hashmap. No mutex contention when multiple agents are hitting different providers simultaneously. A background health daemon also probes every provider every 30 seconds with lightweight requests, so breakers can recover even when no agent traffic is flowing.
+<Callout variant="info">The circuit breaker state machine has three states: Closed (healthy, requests flow), Open (broken, requests fail fast or fall through to next provider), and HalfOpen (probing with a single request to test recovery). A background health daemon probes every 30 seconds so breakers recover even without agent traffic.</Callout>
+
+The state for all breakers lives in a **`DashMap`** — a lock-free concurrent hashmap. No mutex contention when multiple agents are hitting different providers simultaneously. A background health daemon also probes every provider every 30 seconds with lightweight requests, so breakers can recover even when no agent traffic is flowing.
+
+---
 
 ## Streaming
 
 Most LLM responses come back as Server-Sent Events. DOR proxies these without buffering. The Reqwest client reads chunks from the provider and Axum streams them back to the agent as they arrive. No collecting the full response in memory, no adding latency. The gateway is invisible in the streaming path — agents see the same token-by-token flow they'd get hitting the provider directly.
 
+---
+
 ## The stack
 
-Rust 2021 edition. Axum for the HTTP layer because it composes well with Tower middleware. Tokio as the async runtime. Reqwest for outbound HTTP. `serde_yaml` for config parsing. `tracing` with `tracing-subscriber` for structured logging — every request gets a span with provider, tier, circuit state, and latency.
+**Rust 2021 edition**. **Axum** for the HTTP layer because it composes well with Tower middleware. **Tokio** as the async runtime. **Reqwest** for outbound HTTP. `serde_yaml` for config parsing. `tracing` with `tracing-subscriber` for structured logging — every request gets a span with provider, tier, circuit state, and latency.
 
 Auth headers are injected server-side from the config file. Agents send requests without API keys. This also means I can rotate keys in one place instead of updating every agent's environment.
+
+---
 
 ## What I learned
 

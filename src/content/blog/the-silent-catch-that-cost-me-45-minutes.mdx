@@ -8,7 +8,11 @@ draft: false
 
 Last Tuesday I deployed a Next.js app to Vercel, hit the login page, entered valid credentials, and watched the request return a 500. I opened the Vercel function logs expecting a stack trace. There was nothing. No error, no warning, no indication that anything had gone wrong at all. The request simply vanished into a 500-shaped void.
 
-What followed was 45 minutes I will never get back.
+What followed was **45 minutes I will never get back**.
+
+<PullQuote>A bare catch block with no logging turned a simple Prisma runtime error into a 45-minute scavenger hunt on Vercel.</PullQuote>
+
+---
 
 ## The scavenger hunt
 
@@ -32,7 +36,7 @@ That gave me my answer in one request:
 PrismaClientInitializationError: Unable to require `libquery_engine-debian-openssl-3.0.x.so.node`
 ```
 
-A Prisma query engine binary mismatch. My local build used the macOS binary. Vercel runs Linux. The fix was a one-line addition to `schema.prisma`:
+A **Prisma query engine binary mismatch**. My local build used the macOS binary. Vercel runs Linux. The fix was a one-line addition to `schema.prisma`:
 
 ```prisma
 generator client {
@@ -60,9 +64,13 @@ export async function POST(req: Request) {
 }
 ```
 
-Look at the catch block. No error parameter. No `console.error`. The error is caught, discarded, and replaced with a generic message. The route does exactly what it is told to do: fail silently.
+Look at the catch block. No error parameter. No `console.error`. The error is caught, discarded, and replaced with a generic message. **The route does exactly what it is told to do: fail silently.**
 
 This is the programming equivalent of unplugging your smoke detector because the beeping is annoying.
+
+<Callout variant="warning">Never write a bare `catch {}` without capturing and logging the error. A silent catch doesn't handle errors — it hides them. Every catch block should log with a tagged prefix so you can find it in production.</Callout>
+
+---
 
 ## The fix
 
@@ -75,11 +83,11 @@ The immediate fix was mechanical. Every catch block in every API route got the s
 }
 ```
 
-Two changes. First, the catch clause now captures the error. Second, `console.error` logs it with a tag prefix that tells you exactly which route threw it. On Vercel, `console.error` writes to the function logs. The error would have been sitting right there in the dashboard if I had logged it in the first place.
+Two changes. First, the catch clause now captures the error. Second, **`console.error` logs it with a `[tag]` prefix** that tells you exactly which route threw it. On Vercel, `console.error` writes to the function logs. The error would have been sitting right there in the dashboard if I had logged it in the first place.
 
 ## The standard
 
-I adopted a `[tag]` prefix convention across all my projects. Every module gets a short, greppable label:
+I adopted a **`[tag]` prefix convention** across all my projects. Every module gets a short, greppable label:
 
 - `[db]` for database operations
 - `[auth]` for authentication routes
@@ -91,6 +99,8 @@ I adopted a `[tag]` prefix convention across all my projects. Every module gets 
 - `[client]` for client-side errors
 
 When something breaks in production, I run `vercel logs --filter '[db]'` and get every database-related error in chronological order. No scrolling through noise. No guessing which module threw the exception.
+
+---
 
 ## The lint rule
 

@@ -10,6 +10,8 @@ I had 994 memories in a Supabase pgvector store. Architecture decisions, bug fix
 
 The data was there. `memory_search`, the raw unranked query, returned the full depth. The ranking pipeline was the problem, and the root cause was a single line of math I hadn't thought hard enough about.
 
+---
+
 ## The scoring pipeline
 
 My hybrid search combines three signals using Reciprocal Rank Fusion (RRF): keyword match (tsvector), semantic similarity (pgvector cosine distance), and recency. Each signal produces a ranked list, and RRF merges them:
@@ -24,9 +26,11 @@ where `k=60` is the smoothing constant. The recency signal used this decay funct
 recency_score = score * (1.0 / (1.0 + epoch_seconds / 2_592_000))
 ```
 
-That denominator, 2,592,000 seconds, is 30 days. This is a hyperbolic decay with a 30-day half-life: a memory that is exactly 30 days old scores 0.5x relative to a brand-new memory. At 60 days, 0.33x. At 90 days, 0.25x.
+That denominator, 2,592,000 seconds, is 30 days. This is a hyperbolic decay with a **30-day half-life**: a memory that is exactly 30 days old scores **0.5x** relative to a brand-new memory. At 60 days, 0.33x. At 90 days, 0.25x.
 
 Seems reasonable in isolation. It was catastrophic at scale.
+
+---
 
 ## Why everything collapsed
 
@@ -38,11 +42,13 @@ All 994 memories were between 14 and 30 days old. Plug those ages into the decay
 
 The entire corpus was squeezed into a recency score range of 0.50 to 0.68. That is a spread of 0.18 across nearly a thousand memories. The recency signal was effectively constant — it contributed almost no discriminative power to the ranking.
 
-Now RRF compounds the problem. When every memory has roughly the same recency score, the recency-based ranking becomes arbitrary. Small floating-point differences determine rank positions, and RRF converts those positions into scores via `1/(k+rank)`. With `k=60`, the difference between rank 1 and rank 100 is `1/61 - 1/160 = 0.0101`. The recency dimension of the RRF fusion was contributing noise, not signal.
+Now RRF compounds the problem. When every memory has roughly the same recency score, the recency-based ranking becomes arbitrary. Small floating-point differences determine rank positions, and RRF converts those positions into scores via `1/(k+rank)`. With **`k=60`**, the difference between rank 1 and rank 100 is `1/61 - 1/160 = 0.0101`. The recency dimension of the RRF fusion was contributing noise, not signal.
 
 Then the quality threshold delivered the killing blow. The recall tool applies a minimum score cutoff to avoid returning garbage. When the RRF scores are all compressed into a narrow band, that threshold becomes a cliff: everything above it (2 memories) gets returned, everything below it (992 memories) gets silently dropped.
 
-This is a cascade failure. Each stage is locally reasonable. Together they destroy recall.
+**This is a cascade failure.** Each stage is locally reasonable. Together they destroy recall.
+
+---
 
 ## The information-theoretic problem with flat decay
 
@@ -56,7 +62,9 @@ Consider three memories in a developer knowledge base:
 
 3. **"Session summary: refactored the auth middleware, discussed moving to JWT"** — from yesterday. Extremely relevant today, meaningless in two weeks.
 
-These three memories have fundamentally different natural lifespans. This maps directly to what cognitive science calls the distinction between semantic memory and episodic memory. Semantic memory — facts, skills, conceptual knowledge — persists for years. Episodic memory — events, experiences, contextual details — fades in days or weeks. A flat decay function treats architecture decisions like lunch orders.
+These three memories have fundamentally different natural lifespans. This maps directly to what cognitive science calls the distinction between semantic memory and episodic memory. Semantic memory — facts, skills, conceptual knowledge — persists for years. Episodic memory — events, experiences, contextual details — fades in days or weeks. **A flat decay function treats architecture decisions like lunch orders.**
+
+---
 
 ## Tiered decay by source type
 
@@ -80,6 +88,8 @@ Architecture decisions, user preferences, and high-level decisions get a 365-day
 
 The key insight: this immediately restores variance to the recency signal. A 20-day-old architecture decision now scores 0.994 while a 20-day-old session summary scores 0.876. That spread gives RRF something to work with.
 
+---
+
 ## Compounding fixes
 
 Tiered decay was the biggest lever, but three additional changes compound with it:
@@ -92,11 +102,15 @@ Tiered decay was the biggest lever, but three additional changes compound with i
 
 **Dedup threshold adjustment.** I lowered the cosine similarity dedup threshold from 0.92 to 0.88. The original threshold was too aggressive — it was collapsing memories that were related but not identical, further reducing the result set. At 0.88, near-duplicates still get merged but distinct-but-similar memories survive.
 
+---
+
 ## What this taught me about retrieval systems
 
 The deeper lesson is about scoring pipeline design. Each stage of a retrieval pipeline transforms the score distribution, and those transformations interact in ways that are not obvious from looking at any single stage.
 
 **Recency is not a single dimension.** It is a family of per-category curves. Treating it as one dimension is equivalent to fitting a single Gaussian to a multimodal distribution — you get the mean of nothing.
+
+<PullQuote>The decay function is a learned prior. Getting the half-life wrong is the same class of error as training on the wrong data distribution.</PullQuote>
 
 **The decay function is a learned prior.** Getting the half-life wrong is the same class of error as training on the wrong data distribution. You are encoding a belief about how information value changes over time, and if that belief is wrong, your retrieval degrades gracefully until it suddenly does not.
 
@@ -105,6 +119,10 @@ The deeper lesson is about scoring pipeline design. Each stage of a retrieval pi
 **Hard thresholds create cliff effects.** A quality cutoff that works when scores are well-separated becomes a binary coin flip when scores are compressed. If you must use a threshold, pair it with a minimum result guarantee. Better yet, use a soft threshold — a sigmoid gate rather than a step function.
 
 **"Just use cosine similarity" is not enough.** For a production memory system, the scoring pipeline is: `semantic_similarity * recency_decay(source_type) * source_type_weight * project_affinity`. Each factor encodes a different prior about relevance. Cosine similarity alone gets you keyword search with extra steps.
+
+<Callout variant="insight">Every stage of a scoring pipeline transforms the score distribution. If any stage compresses variance to near-zero, every downstream stage — fusion, thresholding, dedup — inherits that compression. Audit the variance at each stage, not just the final output.</Callout>
+
+---
 
 ## The numbers
 

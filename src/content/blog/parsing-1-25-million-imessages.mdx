@@ -6,25 +6,31 @@ tags: ["python", "sqlite", "imessage", "ai", "reverse-engineering"]
 draft: false
 ---
 
-My iMessage history is 4GB. That's 1.25 million messages across every conversation I've had since 2014. One thread alone — a group chat that's been running since college — has 963,000 messages in it. Messages.app can barely open it. Search takes forever when it works at all. There's no export, no backup, no way to analyze a decade of conversations. So I built one.
+My iMessage history is **4GB**. That's **1.25 million** messages across every conversation I've had since 2014. One thread alone — a group chat that's been running since college — has **963K** messages in it. Messages.app can barely open it. Search takes forever when it works at all. There's no export, no backup, no way to analyze a decade of conversations. So I built one.
 
 ## Reading chat.db without breaking it
 
 Apple stores all your iMessages in `~/Library/Messages/chat.db`. It's a plain SQLite database, which is surprisingly generous of them. The schema is reasonable: `message`, `chat`, `handle`, `chat_message_join` — standard relational stuff. The important thing is to never, ever write to this file. I open it with SQLite's read-only VFS mode (`file:chat.db?mode=ro`), which guarantees the connection can't modify the source database even if a bug in my code tries to. This is Apple's live database. Messages.app has it open. Corruption here means losing your entire message history.
 
+<Callout variant="tip">Always open Apple's chat.db with SQLite's read-only VFS mode (`file:chat.db?mode=ro`). This is a kernel-level guarantee that no write can occur, regardless of what your application code does. Do not rely on application-level read-only flags alone.</Callout>
+
 ## Cracking open attributedBody
 
 Here's where it gets interesting. The `message` table has a column called `attributedBody`. For newer messages, the plain text isn't stored separately — it's buried inside this blob column as a serialized `NSAttributedString`. Apple uses NSKeyedArchiver to encode styled text: bold, italic, links, mentions, all the rich formatting that Messages.app renders natively. There's no public API to decode this outside of an Objective-C or Swift context.
 
-The blob is a binary plist containing a keyed archive. The structure nests objects by reference — you get an `$objects` array and a `$top` root, then chase UID references through the graph until you find the `NSString` backing the attributed string. I wrote a parser that unpacks the binary plist, walks the archive structure, and pulls out the plain text. Some messages use the older `text` column directly, so the parser falls back gracefully. After testing against a 500-message sample set with manual verification, I hit 100% parsing accuracy. Every message decoded correctly — plain text, unicode emoji, links, the lot.
+The blob is a binary plist containing a keyed archive. The structure nests objects by reference — you get an `$objects` array and a `$top` root, then chase UID references through the graph until you find the `NSString` backing the attributed string. I wrote a parser that unpacks the binary plist, walks the archive structure, and pulls out the plain text. Some messages use the older `text` column directly, so the parser falls back gracefully. After testing against a 500-message sample set with manual verification, I hit **100% parsing accuracy**. Every message decoded correctly — plain text, unicode emoji, links, the lot.
 
 The satisfaction of watching a proprietary binary format yield its contents to a few dozen lines of Python is hard to overstate.
 
+---
+
 ## Rendering 963K messages without melting the browser
 
-You cannot create 963,000 DOM elements. The browser will not forgive you. I use cursor-based pagination with a sliding window: only about 100 messages are in the DOM at any time. Scroll down, and new messages load at the bottom while old ones are removed from the top. Scroll up, same thing in reverse. The cursor is a message rowid, so pagination is a single indexed SQLite query — fast even on the 4GB database.
+**You cannot create 963,000 DOM elements.** The browser will not forgive you. I use cursor-based pagination with a sliding window: only about 100 messages are in the DOM at any time. Scroll down, and new messages load at the bottom while old ones are removed from the top. Scroll up, same thing in reverse. The cursor is a message rowid, so pagination is a single indexed SQLite query — fast even on the 4GB database.
 
 Jump-to-date works the same way. Pick a date, query for the nearest message rowid, reset the window there, scroll in both directions from that anchor point.
+
+---
 
 ## The three-panel layout
 
@@ -34,6 +40,8 @@ The UI mimics Messages.app because the layout is genuinely good: contacts on the
 
 The detail panel doubles as an AI analysis surface. Select any text in a conversation and a popup appears — ask Claude about it. For deeper analysis, there's a map-reduce mode that processes entire conversation threads: chunk the messages, analyze each chunk, then synthesize. Streaming SSE keeps the UI responsive during long analyses. Vision support lets Claude analyze shared images too — the images are base64 encoded and sent inline with the prompt.
 
+---
+
 ## Google Drive backup
 
 The whole point was to not lose these messages. OAuth2 flow against the Google Drive API v3, with resumable uploads for large exports. The first backup pushes everything; subsequent runs do incremental sync, only uploading new messages since the last run. A decade of conversations, safely off-device.
@@ -41,5 +49,7 @@ The whole point was to not lose these messages. OAuth2 flow against the Google D
 ## The stack
 
 Python FastAPI with Uvicorn on the backend. Vanilla HTML, CSS, and JavaScript on the frontend — no framework, no build step. SQLite in read-only mode for both chat.db and the address book. Claude API for conversation analysis. Google Drive API v3 for backup.
+
+<PullQuote>Apple built a 4GB database with a custom binary format and then shipped a client that can barely read it.</PullQuote>
 
 Apple built a 4GB database with a custom binary format and then shipped a client that can barely read it. Sometimes the best tool is the one you build because nobody else bothered to.

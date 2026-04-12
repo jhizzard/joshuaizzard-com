@@ -10,7 +10,7 @@ I just shipped a Next.js app on the Prisma v6 + Vercel + Supabase stack. The loc
 
 Here they are, in the order I hit them.
 
-## Pitfall 1: Prisma Query Engine not found on Vercel
+## Pitfall 1: **Prisma Query Engine** not found on Vercel
 
 ### Symptom
 
@@ -94,11 +94,13 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 ```
 
-The key detail: `new PrismaClient({ adapter })`. Without this, Prisma still tries to load the native engine at runtime, even if `engineType = "client"` is set in the schema. The adapter is what actually activates the JS engine path.
+The key detail: `new PrismaClient({ adapter })`. Without this, Prisma still tries to load the native engine at runtime, even if `engineType = "client"` is set in the schema. **The adapter is what actually activates the JS engine path.**
 
 After all three changes: `npx prisma generate`, redeploy, and the engine error disappears.
 
-## Pitfall 2: Supabase Dedicated Pooler is IPv6-only
+---
+
+## Pitfall 2: **Supabase Dedicated Pooler** is IPv6-only
 
 ### Symptom
 
@@ -128,7 +130,11 @@ DATABASE_URL="postgresql://postgres.xxxx:PASSWORD@aws-0-us-east-1.pooler.supabas
 DIRECT_URL="postgresql://postgres.xxxx:PASSWORD@db.xxxxxxxxxxxx.supabase.co:5432/postgres"
 ```
 
-## Pitfall 3: URL-encode the database password
+<Callout variant="warning">The Supabase Dedicated Pooler resolves to an IPv6 address. Vercel serverless functions run in an IPv4-only network. This mismatch is not documented prominently on either platform and will silently fail every deploy until you switch to the Shared Pooler.</Callout>
+
+---
+
+## Pitfall 3: **URL-encode the database password**
 
 ### Symptom
 
@@ -168,7 +174,11 @@ For example, if your password is `my+pass#word/123`, the encoded version is `my%
 postgresql://postgres.xxxx:my%2Bpass%23word%2F123@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
 ```
 
+---
+
 ## The checklist
+
+<PullQuote>Check all three before your first deploy. Each one costs a debug cycle if you discover it in production.</PullQuote>
 
 Check all three before your first deploy. Each one costs a debug cycle if you discover it in production.
 

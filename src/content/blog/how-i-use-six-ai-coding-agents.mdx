@@ -20,9 +20,13 @@ To figure out the state of any given agent, I have to cycle through tabs, scroll
 
 Before I was a developer, I worked in finance. I had six to eight Bloomberg terminals on my desk. Each screen showed different data -- equities, fixed income, FX, derivatives -- but every screen self-described its content. Status bars at the top. Color-coded alerts. Position summaries. Price movements highlighted in red or green. You never had to guess what a screen was showing you. You never had to read raw data to figure out the state of the world.
 
-Developer tooling has nothing like this. We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text. It's like watching Bloomberg data scroll by in a raw TCP stream.
+Developer tooling has nothing like this. We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text. **It's like watching Bloomberg data scroll by in a raw TCP stream.**
+
+<PullQuote>We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text.</PullQuote>
 
 That comparison kept nagging at me until I built something about it.
+
+---
 
 ## What I built
 
@@ -34,21 +38,27 @@ Every panel has a status dot: green for active, purple for thinking, amber for i
 
 Here's what my actual working layout looks like. I open TermDeck, switch to the 3x2 grid, and launch six sessions:
 
-- **Panel 1:** Claude Code refactoring the auth module. Tokyo Night theme. Project tag reads "api-server." Status dot is purple -- it's thinking.
-- **Panel 2:** Dev server. Catppuccin theme. The metadata strip shows "Serving on :8080" and a request counter ticking up as the frontend hits the API.
-- **Panel 3:** Test suite. Dracula theme. Green PASS markers scrolling. If something fails, the status dot turns red and I see it immediately.
-- **Panel 4:** Git operations. Nord theme. Staging changes, reviewing diffs.
-- **Panel 5:** Production log tail. Gruvbox Dark. Log levels are color-coded. I'm watching for anomalies while the refactor runs.
-- **Panel 6:** Frontend build. Rose Pine Dawn -- the light theme -- so it's visually distinct from everything else. Vite output streaming.
+- **Panel 1: Claude Code** refactoring the auth module. Tokyo Night theme. Project tag reads "api-server." Status dot is purple -- it's thinking.
+- **Panel 2: Dev server.** Catppuccin theme. The metadata strip shows "Serving on :8080" and a request counter ticking up as the frontend hits the API.
+- **Panel 3: Test suite.** Dracula theme. Green PASS markers scrolling. If something fails, the status dot turns red and I see it immediately.
+- **Panel 4: Git operations.** Nord theme. Staging changes, reviewing diffs.
+- **Panel 5: Production log tail.** Gruvbox Dark. Log levels are color-coded. I'm watching for anomalies while the refactor runs.
+- **Panel 6: Frontend build.** Rose Pine Dawn -- the light theme -- so it's visually distinct from everything else. Vite output streaming.
 
 The effect is what I call the control room. I can see the state of six workstreams at a glance. When the test suite panel turns red, I notice within seconds. When Claude Code's status dot shifts from purple to green, I know it's done thinking and is editing files. I don't have to check. The dashboard tells me.
+
+---
 
 ## What's coming
 
 TermDeck already handles the visual layer, but the next pieces are about intelligence. Rumen is an async learning system that watches session patterns over time -- which commands you run together, which errors recur, which projects you context-switch between. A control panel with Yes/No buttons for AI permission prompts is on the roadmap, so I can approve file edits across agents without switching focus. And the "Ask about this terminal" input field will wire into cross-session memory, letting me query what happened in a terminal three hours ago.
 
+---
+
 ## Why this matters
 
-AI coding agents are becoming the norm. Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot -- the list keeps growing. As these tools get better, the bottleneck shifts. It's no longer about writing code. It's about orchestrating agents. Knowing which one needs attention. Knowing which one is blocked. Knowing which one just finished and is ready for the next task.
+AI coding agents are becoming the norm. Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot -- the list keeps growing. As these tools get better, **the bottleneck shifts. It's no longer about writing code. It's about orchestrating agents.**
+
+<Callout variant="insight">Agent orchestration is the new bottleneck. The limiting factor in multi-agent development is not the capability of any single agent -- it is the developer's ability to monitor, direct, and context-switch between all of them simultaneously.</Callout> Knowing which one needs attention. Knowing which one is blocked. Knowing which one just finished and is ready for the next task.
 
 The tool for that orchestration doesn't really exist yet. We're using tmux and hoping for the best. TermDeck is my attempt to build the control room that multi-agent development actually requires -- the Bloomberg terminal for people who run code instead of trades.

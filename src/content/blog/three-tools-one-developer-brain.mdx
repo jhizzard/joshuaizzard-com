@@ -6,7 +6,7 @@ tags: ["termdeck", "engram", "rumen", "developer-tools"]
 draft: false
 ---
 
-The large language model is stateless. Every session starts from zero. You explain your architecture again, re-describe your conventions, re-establish the context that took weeks to build. The model does not remember that you fixed this exact bug last Tuesday, that the database migration pattern you settled on uses three specific files, or that the CI pipeline breaks when you forget to update the lockfile.
+The large language model is stateless. Every session starts from zero. You explain your architecture again, re-describe your conventions, **re-establish the context that took weeks to build**. The model does not remember that you fixed this exact bug last Tuesday, that the database migration pattern you settled on uses three specific files, or that the CI pipeline breaks when you forget to update the lockfile.
 
 What if it did not have to start from zero?
 
@@ -16,11 +16,13 @@ I have been building three open-source tools that solve different parts of this 
 
 **TermDeck** is the capture layer. A browser-based terminal multiplexer that embeds real PTYs in a dashboard with metadata overlays. It watches what every terminal is doing — which agent is thinking, which hit an error, which server is listening on which port. Every event is observable and structured.
 
-**Engram** is the storage layer. A Supabase-backed memory system with hybrid search — keyword matching, semantic similarity via pgvector, and tiered recency decay that weights architectural decisions differently from yesterday's debug logs. Currently running with over a thousand production memories across a dozen projects. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.
+**Engram** is the storage layer. A Supabase-backed memory system with hybrid search — keyword matching, semantic similarity via pgvector, and **tiered recency decay that weights architectural decisions differently from yesterday's debug logs**. Currently running with over a thousand production memories across a dozen projects. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.
 
-**Rumen** is the reasoning layer. Named after the digestive chamber where ruminants continuously break down food, Rumen is the part of the brain that doesn't sleep. It runs as a Supabase Edge Function on a 15-minute cron — even after you close your laptop, it continues reasoning over your accumulated work. Which files change together? Which errors recur across projects? Which architectural decisions keep getting revisited? Rumen distills these patterns into insights that surface proactively in your next session.
+**Rumen** is the reasoning layer. Named after the digestive chamber where ruminants continuously break down food, **Rumen is the part of the brain that doesn't sleep**. It runs as a Supabase Edge Function on a 15-minute cron — even after you close your laptop, it continues reasoning over your accumulated work. Which files change together? Which errors recur across projects? Which architectural decisions keep getting revisited? Rumen distills these patterns into insights that surface proactively in your next session.
 
 The LLM is stateless. Rumen isn't.
+
+<PullQuote>The LLM is stateless. Rumen isn't.</PullQuote>
 
 ## How they compose
 
@@ -28,9 +30,11 @@ The data flows in one direction: **capture → store → reason → surface.**
 
 TermDeck pipes structured events — session starts, commands executed, status changes, file edits detected — into Engram. Engram indexes them with full-text search and vector embeddings. Rumen reads from Engram on a schedule, synthesizes cross-session patterns, and writes distilled insights back into Engram's memory store.
 
-The next morning, when a new coding session starts, Engram surfaces both raw memories and Rumen's synthesized insights. The context window is seeded with things you forgot you knew.
+The next morning, when a new coding session starts, Engram surfaces both raw memories and Rumen's synthesized insights. **The context window is seeded with things you forgot you knew.**
 
 **The loop closes: today's work becomes tomorrow's context.**
+
+---
 
 ## How this compares to other approaches
 
@@ -51,17 +55,21 @@ Several projects tackle parts of this problem. None close the full loop.
 
 The differentiator is not that any one feature is superior. It is that **the loop is closed** — capture happens passively, storage is durable and searchable, reasoning continues autonomously, and insights surface without being asked for. Nobody has to remember to take notes.
 
+<Callout variant="insight">The key differentiator is the closed loop: TermDeck captures passively, Engram stores durably, and Rumen reasons autonomously — even after you close your laptop. No other approach connects all three layers.</Callout>
+
 ## Why three repos, not one
 
 Unix philosophy. Each tool does one thing well.
 
 A developer who wants a better terminal multiplexer can install TermDeck without caring about memory systems. Someone building an MCP memory server can use Engram without needing terminals. A team interested in async pattern synthesis can study Rumen's approach independently.
 
-Each repository gets its own documentation, its own issue tracker, its own release cycle. Users adopt what they need and ignore the rest. Composition happens at the integration layer, not the dependency layer.
+Each repository gets its own documentation, its own issue tracker, its own release cycle. Users adopt what they need and ignore the rest. **Composition happens at the integration layer, not the dependency layer.**
+
+---
 
 ## The brain doesn't sleep
 
-Most developer tools stop working when you stop working. Your IDE closes. Your terminal session ends. Your context evaporates.
+**Most developer tools stop working when you stop working.** Your IDE closes. Your terminal session ends. Your context evaporates.
 
 Rumen is the piece that changes this. While you sleep, it reviews today's sessions, finds connections to work from three weeks ago, and prepares insights for tomorrow. When you open TermDeck the next morning, there is a notification: *"Rumen found 2 patterns and has 1 question for you."*
 
@@ -69,7 +77,7 @@ The pattern might be: *"The auth middleware bug you fixed last night matches the
 
 The question might be: *"Did the database lock fix actually resolve the issue, or did you work around it?"*
 
-This is not artificial general intelligence. It is plumbing. Boring, useful, compounding plumbing that makes every session slightly better than the last.
+This is not artificial general intelligence. It is plumbing. **Boring, useful, compounding plumbing that makes every session slightly better than the last.**
 
 ## Get started
 
