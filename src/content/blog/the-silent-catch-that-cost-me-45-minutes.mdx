@@ -16,7 +16,9 @@ What followed was **45 minutes I will never get back**.
 
 ## The scavenger hunt
 
-My first instinct was environment variables. Vercel's dashboard showed all the expected keys — `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`. I copied them into a local `.env`, ran the route locally, and it worked fine. So not env vars.
+**My first instinct was environment variables.**
+
+Vercel's dashboard showed all the expected keys — `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`. I copied them into a local `.env`, ran the route locally, and it worked fine. So not env vars.
 
 Next I checked the database connection. I opened Supabase, ran a raw query against the users table, got results. The connection string was correct. The database was up.
 
@@ -36,7 +38,7 @@ That gave me my answer in one request:
 PrismaClientInitializationError: Unable to require `libquery_engine-debian-openssl-3.0.x.so.node`
 ```
 
-A **Prisma query engine binary mismatch**. My local build used the macOS binary. Vercel runs Linux. The fix was a one-line addition to `schema.prisma`:
+A Prisma query engine binary mismatch. My local build used the macOS binary. Vercel runs Linux. The fix was a one-line addition to `schema.prisma`:
 
 ```prisma
 generator client {
@@ -49,7 +51,9 @@ Regenerate the client, redeploy, login works. A five-minute fix that took 45 min
 
 ## The actual root cause
 
-The Prisma error was the proximate cause. The real cause was this pattern, which I had written months earlier and never thought about again:
+**The Prisma error was the proximate cause. The real cause was a pattern I had written months earlier.**
+
+I had never thought about it again:
 
 ```ts
 export async function POST(req: Request) {
@@ -64,7 +68,7 @@ export async function POST(req: Request) {
 }
 ```
 
-Look at the catch block. No error parameter. No `console.error`. The error is caught, discarded, and replaced with a generic message. **The route does exactly what it is told to do: fail silently.**
+Look at the catch block. No error parameter. No `console.error`. The error is caught, discarded, and replaced with a generic message. The route does exactly what it is told to do: fail silently.
 
 This is the programming equivalent of unplugging your smoke detector because the beeping is annoying.
 
@@ -74,7 +78,9 @@ This is the programming equivalent of unplugging your smoke detector because the
 
 ## The fix
 
-The immediate fix was mechanical. Every catch block in every API route got the same treatment:
+**The immediate fix was mechanical.**
+
+Every catch block in every API route got the same treatment:
 
 ```ts
 } catch (err) {
@@ -83,11 +89,13 @@ The immediate fix was mechanical. Every catch block in every API route got the s
 }
 ```
 
-Two changes. First, the catch clause now captures the error. Second, **`console.error` logs it with a `[tag]` prefix** that tells you exactly which route threw it. On Vercel, `console.error` writes to the function logs. The error would have been sitting right there in the dashboard if I had logged it in the first place.
+Two changes. First, the catch clause now captures the error. Second, `console.error` logs it with a `[tag]` prefix that tells you exactly which route threw it. On Vercel, `console.error` writes to the function logs. The error would have been sitting right there in the dashboard if I had logged it in the first place.
 
 ## The standard
 
-I adopted a **`[tag]` prefix convention** across all my projects. Every module gets a short, greppable label:
+**I adopted a `[tag]` prefix convention across all my projects.**
+
+Every module gets a short, greppable label:
 
 - `[db]` for database operations
 - `[auth]` for authentication routes
@@ -104,7 +112,9 @@ When something breaks in production, I run `vercel logs --filter '[db]'` and get
 
 ## The lint rule
 
-Fixing my own code was not enough. I needed to make sure this pattern could never reappear in any project I work on. I added an ESLint rule that flags bare catch blocks with no logging:
+**Fixing my own code was not enough.**
+
+I needed to make sure this pattern could never reappear in any project I work on. I added an ESLint rule that flags bare catch blocks with no logging:
 
 ```js
 // eslint-plugin-local-rules

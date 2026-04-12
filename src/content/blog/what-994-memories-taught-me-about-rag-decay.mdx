@@ -6,7 +6,7 @@ tags: ["rag", "machine-learning", "supabase", "engram"]
 draft: false
 ---
 
-I had 994 memories in a Supabase pgvector store. Architecture decisions, bug fixes, session summaries, coding conventions — everything my AI coding agent had learned across a dozen projects over the past month. When I called `memory_recall` to retrieve relevant context, it returned 2 results. Two. Out of 994.
+I had **994 memories** in a Supabase pgvector store. Architecture decisions, bug fixes, session summaries, coding conventions — everything my AI coding agent had learned across a dozen projects over the past month. When I called `memory_recall` to retrieve relevant context, it returned **2 results**. Two. Out of **994**.
 
 The data was there. `memory_search`, the raw unranked query, returned the full depth. The ranking pipeline was the problem, and the root cause was a single line of math I hadn't thought hard enough about.
 
@@ -14,13 +14,15 @@ The data was there. `memory_search`, the raw unranked query, returned the full d
 
 ## The scoring pipeline
 
+**Recency is not a single dimension. It is a per-category curve.**
+
 My hybrid search combines three signals using Reciprocal Rank Fusion (RRF): keyword match (tsvector), semantic similarity (pgvector cosine distance), and recency. Each signal produces a ranked list, and RRF merges them:
 
 ```
 RRF_score = Σ (1 / (k + rank_i))
 ```
 
-where `k=60` is the smoothing constant. The recency signal used this decay function to produce its ranking:
+where **`k=60`** is the smoothing constant. The recency signal used this decay function to produce its ranking:
 
 ```
 recency_score = score * (1.0 / (1.0 + epoch_seconds / 2_592_000))
@@ -34,6 +36,8 @@ Seems reasonable in isolation. It was catastrophic at scale.
 
 ## Why everything collapsed
 
+**A spread of 0.18 across nearly a thousand memories meant the recency signal was noise.**
+
 All 994 memories were between 14 and 30 days old. Plug those ages into the decay function:
 
 - 14 days old: `1 / (1 + 1_209_600 / 2_592_000)` = `1 / 1.467` = **0.681**
@@ -42,15 +46,17 @@ All 994 memories were between 14 and 30 days old. Plug those ages into the decay
 
 The entire corpus was squeezed into a recency score range of 0.50 to 0.68. That is a spread of 0.18 across nearly a thousand memories. The recency signal was effectively constant — it contributed almost no discriminative power to the ranking.
 
-Now RRF compounds the problem. When every memory has roughly the same recency score, the recency-based ranking becomes arbitrary. Small floating-point differences determine rank positions, and RRF converts those positions into scores via `1/(k+rank)`. With **`k=60`**, the difference between rank 1 and rank 100 is `1/61 - 1/160 = 0.0101`. The recency dimension of the RRF fusion was contributing noise, not signal.
+Now RRF compounds the problem. When every memory has roughly the same recency score, the recency-based ranking becomes arbitrary. Small floating-point differences determine rank positions, and RRF converts those positions into scores via `1/(k+rank)`. With **`k=60`**, the difference between rank 1 and rank **100** is `1/61 - 1/160 = 0.0101`. The recency dimension of the RRF fusion was contributing noise, not signal.
 
-Then the quality threshold delivered the killing blow. The recall tool applies a minimum score cutoff to avoid returning garbage. When the RRF scores are all compressed into a narrow band, that threshold becomes a cliff: everything above it (2 memories) gets returned, everything below it (992 memories) gets silently dropped.
+Then the quality threshold delivered the killing blow. The recall tool applies a minimum score cutoff to avoid returning garbage. When the RRF scores are all compressed into a narrow band, that threshold becomes a cliff: everything above it (**2** memories) gets returned, everything below it (**992** memories) gets silently dropped.
 
-**This is a cascade failure.** Each stage is locally reasonable. Together they destroy recall.
+This is a cascade failure. Each stage is locally reasonable. Together they destroy recall.
 
 ---
 
 ## The information-theoretic problem with flat decay
+
+**A flat decay function treats architecture decisions like lunch orders.**
 
 Step back from the implementation for a moment. A decay function is a prior over information value as a function of time. When you apply the same decay curve to every memory type, you are asserting that all information loses relevance at the same rate. That assertion is wrong, and it is wrong in a way that matters.
 
@@ -62,11 +68,13 @@ Consider three memories in a developer knowledge base:
 
 3. **"Session summary: refactored the auth middleware, discussed moving to JWT"** — from yesterday. Extremely relevant today, meaningless in two weeks.
 
-These three memories have fundamentally different natural lifespans. This maps directly to what cognitive science calls the distinction between semantic memory and episodic memory. Semantic memory — facts, skills, conceptual knowledge — persists for years. Episodic memory — events, experiences, contextual details — fades in days or weeks. **A flat decay function treats architecture decisions like lunch orders.**
+These three memories have fundamentally different natural lifespans. This maps directly to what cognitive science calls the distinction between semantic memory and episodic memory. Semantic memory — facts, skills, conceptual knowledge — persists for years. Episodic memory — events, experiences, contextual details — fades in days or weeks. A flat decay function treats architecture decisions like lunch orders.
 
 ---
 
 ## Tiered decay by source type
+
+**Different memory types have fundamentally different natural lifespans.**
 
 The fix is to assign each `source_type` its own half-life. Here is the actual SQL CASE statement:
 
@@ -92,23 +100,25 @@ The key insight: this immediately restores variance to the recency signal. A 20-
 
 ## Compounding fixes
 
-Tiered decay was the biggest lever, but three additional changes compound with it:
+**Tiered decay was the biggest lever, but three additional changes compound with it.**
 
 **Source-type weighting.** Not all memory types are equally valuable when they do surface. Decisions get a 1.5x multiplier, architecture 1.4x, bug fixes 1.3x, and document chunks 0.6x. This is a static prior on type importance, independent of recency. It interacts multiplicatively with the decay score, so a well-preserved architecture memory with a 1.4x weight creates clear separation from a fading session summary at 0.6x.
 
 **Project affinity scoring.** When the query context includes a project identifier, memories from that exact project get a 1.5x boost. Memories with no project association score 1.0x. Memories from unrelated projects score 0.7x. This is a simple but effective contextual prior — if I am working on the scheduling service, I want scheduling memories, not e-commerce memories.
 
-**Minimum result guarantee.** The recall tool now always returns at least 5 results regardless of the quality threshold. This prevents the cascade failure entirely: even if the scoring pipeline compresses scores, the user gets something. The threshold still filters noise in the common case, but it cannot produce the "2 results from 994 memories" failure mode.
+**Minimum result guarantee.** The recall tool now always returns at least 5 results regardless of the quality threshold. This prevents the cascade failure entirely: even if the scoring pipeline compresses scores, the user gets something. The threshold still filters noise in the common case, but it cannot produce the "**2 results from 994 memories**" failure mode.
 
-**Dedup threshold adjustment.** I lowered the cosine similarity dedup threshold from 0.92 to 0.88. The original threshold was too aggressive — it was collapsing memories that were related but not identical, further reducing the result set. At 0.88, near-duplicates still get merged but distinct-but-similar memories survive.
+**Dedup threshold adjustment.** I lowered the cosine similarity dedup threshold from **0.92** to **0.88**. The original threshold was too aggressive — it was collapsing memories that were related but not identical, further reducing the result set. At 0.88, near-duplicates still get merged but distinct-but-similar memories survive.
 
 ---
 
 ## What this taught me about retrieval systems
 
-The deeper lesson is about scoring pipeline design. Each stage of a retrieval pipeline transforms the score distribution, and those transformations interact in ways that are not obvious from looking at any single stage.
+**Each stage of a retrieval pipeline transforms the score distribution, and those transformations interact in ways that are not obvious from looking at any single stage.**
 
-**Recency is not a single dimension.** It is a family of per-category curves. Treating it as one dimension is equivalent to fitting a single Gaussian to a multimodal distribution — you get the mean of nothing.
+The deeper lesson is about scoring pipeline design.
+
+Recency is not a single dimension. It is a family of per-category curves. Treating it as one dimension is equivalent to fitting a single Gaussian to a multimodal distribution — you get the mean of nothing.
 
 <PullQuote>The decay function is a learned prior. Getting the half-life wrong is the same class of error as training on the wrong data distribution.</PullQuote>
 
@@ -126,8 +136,10 @@ The deeper lesson is about scoring pipeline design. Each stage of a retrieval pi
 
 ## The numbers
 
-Before the fix: 2 results from 994 memories. A recall rate so low the system was effectively amnesic.
+**The fix was roughly 40 lines of SQL. The lesson took 994 memories to learn.**
 
-After the fix: consistently 15-25 relevant results with clear ranking separation. Architecture decisions from weeks ago surface alongside fresh session context. Bug fixes appear when you are working on the same code and fade when you move on. The ranking feels right in the way that is hard to quantify but obvious when you use it.
+Before the fix: **2 results from 994 memories**. A recall rate so low the system was effectively amnesic.
 
-The fix was roughly 40 lines of SQL. The lesson took 994 memories to learn.
+After the fix: consistently **15-25** relevant results with clear ranking separation. Architecture decisions from weeks ago surface alongside fresh session context. Bug fixes appear when you are working on the same code and fade when you move on. The ranking feels right in the way that is hard to quantify but obvious when you use it.
+
+The fix was roughly **40 lines of SQL**. The lesson took **994 memories** to learn.

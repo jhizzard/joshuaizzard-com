@@ -12,7 +12,9 @@ I spent months building a production scheduling engine for multi-day, multi-venu
 
 ## Where greedy falls apart
 
-A greedy scheduler makes locally optimal choices: pick the best available slot, assign it, move on. This works until constraint cascades start showing up. You assign Participant A to Room 3 at 10:00 because it satisfies their faculty preference. But now Participant B can't use Room 3 at 10:00, which pushes them to 11:00, which conflicts with their faculty's availability, which forces a room swap for Participant C, which violates a room equipment requirement. One "good" decision three steps ago just made the rest of the schedule infeasible.
+**A greedy scheduler makes locally optimal choices — until constraint cascades make it useless.**
+
+Pick the best available slot, assign it, move on. You assign Participant A to Room 3 at 10:00 because it satisfies their faculty preference. But now Participant B can't use Room 3 at 10:00, which pushes them to 11:00, which conflicts with their faculty's availability, which forces a room swap for Participant C, which violates a room equipment requirement. One "good" decision three steps ago just made the rest of the schedule infeasible.
 
 You can add backtracking to a greedy approach, but at that point you're building a worse version of a constraint solver. I decided to use a real one.
 
@@ -20,9 +22,11 @@ You can add backtracking to a greedy approach, but at that point you're building
 
 ## Why CP-SAT
 
+**Scheduling is fundamentally a constraint satisfaction problem.**
+
 Google's OR-Tools CP-SAT solver is a constraint programming solver that handles boolean satisfiability, integer programming, and constraint propagation in a single engine. You define variables, add constraints, optionally define an objective function, and it finds a feasible (or optimal) solution. It's free, well-documented, and fast enough for real-time use in scheduling problems with thousands of variables.
 
-**The key insight is that scheduling is fundamentally a constraint satisfaction problem.** Every rule — no double-booking, faculty availability, room capacity, time preferences — is a constraint. CP-SAT handles the interaction between all of them simultaneously, which is exactly what greedy can't do.
+Every rule — no double-booking, faculty availability, room capacity, time preferences — is a constraint. CP-SAT handles the interaction between all of them simultaneously, which is exactly what greedy can't do.
 
 <PullQuote>Scheduling is fundamentally a constraint satisfaction problem. Model it as constraints and let a real solver handle the combinatorics.</PullQuote>
 
@@ -30,7 +34,9 @@ Google's OR-Tools CP-SAT solver is a constraint programming solver that handles 
 
 ## Two-phase decomposition
 
-A single monolithic CP-SAT model with every participant, every room, every time slot, and every day would work in theory. In practice, the variable space explodes. A 4-day event with 17 participants, 6 rooms, and 30-minute slots across 8-hour days produces tens of thousands of boolean variables. The solver can handle it, but solution times become unpredictable.
+**A single monolithic model works in theory — in practice, the variable space explodes.**
+
+A 4-day event with 17 participants, 6 rooms, and 30-minute slots across 8-hour days produces tens of thousands of boolean variables. The solver can handle it, but solution times become unpredictable.
 
 I decomposed the problem into two phases. Phase 1 is a `GlobalAllocator` that assigns events to days. It operates at the macro level — which participant performs on which day, balancing daily load, respecting day-specific constraints, and distributing faculty workload. Phase 2 is a daily solver that takes the day assignments from Phase 1 and fills in the specific time slots and room assignments. It handles the micro-level constraints: no room conflicts, equipment requirements, buffer times between events, practice room availability.
 
@@ -40,7 +46,9 @@ This decomposition cuts the variable space dramatically. Phase 1 deals with mayb
 
 ## 23 constraints and typed validation
 
-The system enforces **23 distinct constraints**, split between hard constraints (must be satisfied or the schedule is infeasible) and soft constraints (satisfied when possible, with weighted penalties in the objective function). Every constraint is defined as a typed Pydantic model with validation. This means constraint definitions are serializable, testable, and self-documenting. When someone adds a new scheduling rule, it's a new Pydantic class with a `apply(model, variables)` method, not a buried conditional in the solver loop.
+**The system enforces 23 distinct constraints, split between hard and soft.**
+
+Hard constraints must be satisfied or the schedule is infeasible. Soft constraints are satisfied when possible, with weighted penalties in the objective function. Every constraint is defined as a typed Pydantic model with validation. This means constraint definitions are serializable, testable, and self-documenting. When someone adds a new scheduling rule, it's a new Pydantic class with a `apply(model, variables)` method, not a buried conditional in the solver loop.
 
 ---
 
@@ -50,9 +58,11 @@ Hard constraints include the obvious ones — no double-booking participants, no
 
 ## Fairness scoring and the feedback loop
 
-Fairness was non-negotiable. With 17 participants, every one of them needed equitable treatment: comparable practice time, reasonable scheduling, no one stuck with all the bad slots. I implemented a fairness scoring system that evaluates the final schedule across multiple dimensions and produces a 0-100 score.
+**Fairness was non-negotiable.**
 
-The system achieves **100/100 fairness** through a feedback loop. After the initial solve, the fairness scorer evaluates the result. If the score is below threshold, the engine runs a practice session cleanup pass — identifying participants with practice deficits, reallocating freed slots via round-robin with deficit tracking — and re-solves. This loop runs a maximum of two iterations. In practice, the first re-solve almost always hits 100.
+With 17 participants, every one of them needed equitable treatment: comparable practice time, reasonable scheduling, no one stuck with all the bad slots. I implemented a fairness scoring system that evaluates the final schedule across multiple dimensions and produces a 0-100 score.
+
+The system achieves 100/100 fairness through a feedback loop. After the initial solve, the fairness scorer evaluates the result. If the score is below threshold, the engine runs a practice session cleanup pass — identifying participants with practice deficits, reallocating freed slots via round-robin with deficit tracking — and re-solves. This loop runs a maximum of two iterations. In practice, the first re-solve almost always hits 100.
 
 Practice guarantee allocation uses round-robin assignment with deficit tracking across days. If a participant got fewer practice slots on Day 1 due to their performance schedule, they get priority on Day 2. The deficit tracker ensures cumulative fairness, not just per-day fairness.
 
@@ -60,7 +70,9 @@ Practice guarantee allocation uses round-robin assignment with deficit tracking 
 
 ## The pipeline
 
-The full solve runs through a 12-step pipeline: config validation, constraint compilation, capacity analysis, global allocation, daily solves, practice allocation, fairness evaluation, optional re-solve iterations, conflict verification, schedule serialization, and result delivery. Each step streams progress via Server-Sent Events, so the user sees real-time updates in the browser rather than staring at a spinner for 30 seconds.
+**The full solve runs through a 12-step pipeline.**
+
+Config validation, constraint compilation, capacity analysis, global allocation, daily solves, practice allocation, fairness evaluation, optional re-solve iterations, conflict verification, schedule serialization, and result delivery. Each step streams progress via Server-Sent Events, so the user sees real-time updates in the browser rather than staring at a spinner for 30 seconds.
 
 The capacity analyzer deserves a mention. Before the solver even runs, it performs a demand-versus-supply pre-flight check. If there physically aren't enough room-hours to accommodate the event count, it fails fast with a diagnostic report instead of letting the solver churn on an infeasible problem.
 
@@ -68,18 +80,24 @@ The capacity analyzer deserves a mention. Before the solver even runs, it perfor
 
 ## The NL-first setup wizard
 
-Configuring 23 constraints through form fields is painful. I built a natural language setup wizard that uses Claude Haiku to interpret plain-English descriptions of scheduling requirements. A user can type "Dr. Smith is only available Tuesday and Thursday mornings" and the system generates the correct faculty availability constraint object. The Pydantic validation layer catches any misinterpretation before it reaches the solver.
+**Configuring 23 constraints through form fields is painful.**
+
+I built a natural language setup wizard that uses Claude Haiku to interpret plain-English descriptions of scheduling requirements. A user can type "Dr. Smith is only available Tuesday and Thursday mornings" and the system generates the correct faculty availability constraint object. The Pydantic validation layer catches any misinterpretation before it reaches the solver.
 
 ---
 
 ## Testing a solver
 
-Solver-based systems are notoriously hard to test because the output is non-deterministic — there may be millions of valid schedules. I wrote **461 tests** by focusing on invariant testing: every valid schedule must satisfy all hard constraints, fairness scores must meet minimums, locked events must not move, no room can be double-booked regardless of what the solver chooses. The tests verify properties of solutions, not specific solutions.
+**Solver-based systems are notoriously hard to test because the output is non-deterministic.**
+
+There may be millions of valid schedules. I wrote 461 tests by focusing on invariant testing: every valid schedule must satisfy all hard constraints, fairness scores must meet minimums, locked events must not move, no room can be double-booked regardless of what the solver chooses. The tests verify properties of solutions, not specific solutions.
 
 ---
 
 ## Was it worth it
 
-The greedy scheduler took a week to build and broke constantly as requirements evolved. The CP-SAT engine took months but handles every new constraint as a declarative addition rather than a structural change. If you're building a scheduling system and you've hit the wall where adding one more rule breaks three others, stop patching the greedy algorithm. Model your problem as constraints and let a real solver handle the combinatorics. That's what they're for.
+**The greedy scheduler took a week to build and broke constantly as requirements evolved.**
+
+The CP-SAT engine took months but handles every new constraint as a declarative addition rather than a structural change. If you're building a scheduling system and you've hit the wall where adding one more rule breaks three others, stop patching the greedy algorithm. Model your problem as constraints and let a real solver handle the combinatorics. That's what they're for.
 
 <Callout variant="tip">If adding one scheduling rule breaks three others, you've outgrown greedy algorithms. Switch to CP-SAT: define each rule as a constraint, and the solver handles the interactions between all of them simultaneously.</Callout>

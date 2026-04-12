@@ -12,15 +12,19 @@ The problem isn't running them. The problem is knowing what they're all doing.
 
 ## The tmux ceiling
 
+**Six panes of monochrome terminal output, and every single one looks the same.**
+
 For a long time, tmux was the answer. Split panes, named windows, prefix keys. It works. But when you have six panes of monochrome terminal output, every single one looks the same. I can't tell at a glance which agent is thinking, which finished five minutes ago and is waiting for input, and which hit an error ten minutes ago and is just sitting there while I waste time on something else.
 
 To figure out the state of any given agent, I have to cycle through tabs, scroll through output, read the last few lines, and mentally reconstruct the context. Multiply that by six terminals and it becomes a real tax on attention. I was spending more time managing the agents than benefiting from them.
 
 ## The Bloomberg parallel
 
+**Every screen self-described its content. Developer tooling has nothing like this.**
+
 Before I was a developer, I worked in finance. I had six to eight Bloomberg terminals on my desk. Each screen showed different data -- equities, fixed income, FX, derivatives -- but every screen self-described its content. Status bars at the top. Color-coded alerts. Position summaries. Price movements highlighted in red or green. You never had to guess what a screen was showing you. You never had to read raw data to figure out the state of the world.
 
-Developer tooling has nothing like this. We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text. **It's like watching Bloomberg data scroll by in a raw TCP stream.**
+Developer tooling has nothing like this. We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text. It's like watching Bloomberg data scroll by in a raw TCP stream.
 
 <PullQuote>We have the most powerful coding agents ever built, and we're running them in undifferentiated rectangles of text.</PullQuote>
 
@@ -30,11 +34,15 @@ That comparison kept nagging at me until I built something about it.
 
 ## What I built
 
+**A browser-based terminal dashboard where every panel self-describes its state.**
+
 TermDeck is a browser-based terminal dashboard. Each terminal panel is a real PTY -- full terminal emulation, not a pseudo-shell -- but wrapped in a metadata layer that tells you what's happening without reading the output.
 
 Every panel has a status dot: green for active, purple for thinking, amber for idle, red for errored. The server watches PTY output and detects what type of process is running -- Claude Code, Gemini CLI, a Python server, a plain shell. Project tags show which codebase a terminal belongs to. A metadata strip displays the last command run and any detected ports. And each terminal gets its own theme, so visual differentiation is instant.
 
 ## The six-panel workflow
+
+**I can see the state of six workstreams at a glance.**
 
 Here's what my actual working layout looks like. I open TermDeck, switch to the 3x2 grid, and launch six sessions:
 
@@ -51,13 +59,17 @@ The effect is what I call the control room. I can see the state of six workstrea
 
 ## What's coming
 
+**The next pieces are about intelligence, not visuals.**
+
 TermDeck already handles the visual layer, but the next pieces are about intelligence. Rumen is an async learning system that watches session patterns over time -- which commands you run together, which errors recur, which projects you context-switch between. A control panel with Yes/No buttons for AI permission prompts is on the roadmap, so I can approve file edits across agents without switching focus. And the "Ask about this terminal" input field will wire into cross-session memory, letting me query what happened in a terminal three hours ago.
 
 ---
 
 ## Why this matters
 
-AI coding agents are becoming the norm. Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot -- the list keeps growing. As these tools get better, **the bottleneck shifts. It's no longer about writing code. It's about orchestrating agents.**
+**The bottleneck shifts from writing code to orchestrating agents.**
+
+AI coding agents are becoming the norm. Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot -- the list keeps growing. As these tools get better, the bottleneck shifts. It's no longer about writing code. It's about orchestrating agents.
 
 <Callout variant="insight">Agent orchestration is the new bottleneck. The limiting factor in multi-agent development is not the capability of any single agent -- it is the developer's ability to monitor, direct, and context-switch between all of them simultaneously.</Callout> Knowing which one needs attention. Knowing which one is blocked. Knowing which one just finished and is ready for the next task.
 

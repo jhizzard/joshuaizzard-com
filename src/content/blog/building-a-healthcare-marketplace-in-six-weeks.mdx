@@ -16,7 +16,9 @@ It was the most technically dense project I have built, and also the most fun. H
 
 ## The data problem came first
 
-Before writing a single React component, I spent serious time on financial modeling and due diligence. The core value proposition of the marketplace is price transparency — patients should be able to compare what providers actually charge for the same service across thousands of locations. That means the data has to be trustworthy, and building trust in messy real-world pricing data is a genuinely hard problem.
+**Before writing a single React component, I spent serious time on financial modeling and due diligence.**
+
+The core value proposition of the marketplace is price transparency — patients should be able to compare what providers actually charge for the same service across thousands of locations. That means the data has to be trustworthy, and building trust in messy real-world pricing data is a genuinely hard problem.
 
 I built a multi-source data ingestion pipeline to pull pricing information from every source I could find. Playwright-based web scrapers handled JavaScript-rendered provider directories. HTTP chain scrapers worked through paginated APIs. Structured imports consumed published fee schedules in CSV and Excel formats. For the messiest sources — PDFs, unstructured web pages, inconsistent spreadsheets — I built an AI extraction layer that could pull structured pricing from nearly anything.
 
@@ -28,9 +30,11 @@ By the end I had 194K price data points across 12K provider locations — enough
 
 ## Financial modeling as a feature
 
-What made this project exciting was the depth of quantitative analysis baked into the product itself. I was not just building CRUD screens. I was analyzing provider economics — understanding pricing structures, modeling unit economics across different service categories, and building systems that could surface statistically meaningful comparisons to patients.
+**What made this project exciting was the depth of quantitative analysis baked into the product itself.**
 
-The confidence scoring system became central to the user experience. Each price comparison carries a confidence score derived from source freshness, cross-source agreement, and sample size. A price confirmed by three independent sources last month scores differently than a single self-reported figure from two years ago. **This kind of due diligence on data accuracy is what separates a useful marketplace from a misleading one**, and encoding that rigor into the product was deeply satisfying engineering work.
+I was not just building CRUD screens. I was analyzing provider economics — understanding pricing structures, modeling unit economics across different service categories, and building systems that could surface statistically meaningful comparisons to patients.
+
+The confidence scoring system became central to the user experience. Each price comparison carries a confidence score derived from source freshness, cross-source agreement, and sample size. A price confirmed by three independent sources last month scores differently than a single self-reported figure from two years ago. This kind of due diligence on data accuracy is what separates a useful marketplace from a misleading one, and encoding that rigor into the product was deeply satisfying engineering work.
 
 <Callout variant="insight">Spending the first week entirely on financial modeling and data architecture — before touching any UI — informed every product decision downstream. Understanding the shape of the data made six weeks possible.</Callout>
 
@@ -38,7 +42,9 @@ The confidence scoring system became central to the user experience. Each price 
 
 ## AI-powered search
 
-Patients do not search the way databases think. Someone types "I need a routine checkup near downtown" and the system needs to figure out which service category that maps to, what complexity tier it falls into, and which providers are relevant.
+**Patients do not search the way databases think.**
+
+Someone types "I need a routine checkup near downtown" and the system needs to figure out which service category that maps to, what complexity tier it falls into, and which providers are relevant.
 
 I built a complexity classifier with 27 regex patterns and 19 intent overrides that categorizes incoming queries before they hit the vector search layer. Synonym expansion handles the fact that patients and providers use different terminology for the same services. The whole thing runs on pgvector embeddings in Supabase's PostgreSQL, which keeps the infrastructure simple — no separate vector database to manage.
 
@@ -46,24 +52,32 @@ I built a complexity classifier with 27 regex patterns and 19 intent overrides t
 
 ## Three portals, one codebase
 
-The application serves three distinct experiences: a patient portal for searching and submitting service requests, a provider portal for managing profiles and bidding on requests, and an admin portal for data validation, analytics, and platform management. All three live in a single Next.js 16 App Router codebase using route groups — `(patient)`, `(provider)`, `(admin)` — which keeps shared logic centralized while giving each portal its own layout and navigation.
+**The application serves three distinct experiences from a single Next.js codebase.**
+
+A patient portal for searching and submitting service requests, a provider portal for managing profiles and bidding on requests, and an admin portal for data validation, analytics, and platform management. All three live in a single Next.js 16 App Router codebase using route groups — `(patient)`, `(provider)`, `(admin)` — which keeps shared logic centralized while giving each portal its own layout and navigation.
 
 ---
 
 ## Real-time bidding and payments
 
-When a patient submits a service request, relevant providers see it in real time via Supabase Realtime and can place bids. The bidding engine handles bid validation, ranking, and expiration. Once a patient accepts a bid, Stripe Connect processes the payment using a capture-then-refund pattern — funds are authorized and captured, but the platform holds them through an inspection window so the patient can flag issues or cancel if needed. Providers receive payouts through connected Stripe accounts.
+**When a patient submits a service request, relevant providers see it and can bid in real time.**
+
+The bidding engine handles bid validation, ranking, and expiration. Once a patient accepts a bid, Stripe Connect processes the payment using a capture-then-refund pattern — funds are authorized and captured, but the platform holds them through an inspection window so the patient can flag issues or cancel if needed. Providers receive payouts through connected Stripe accounts.
 
 ---
 
 ## The stack
 
-The full stack: Next.js 16 with App Router, Supabase for PostgreSQL, Auth, and Realtime subscriptions, Stripe Connect for marketplace payments, Google Maps for location search and provider mapping, pgvector for semantic search, and Tailwind CSS with shadcn/ui for the interface. Late in the build I did a mobile-responsive retrofit — not a native app, but every flow works cleanly on a phone.
+**The full stack spans six major services, all coordinated from a single Next.js codebase.**
+
+Next.js 16 with App Router, Supabase for PostgreSQL, Auth, and Realtime subscriptions, Stripe Connect for marketplace payments, Google Maps for location search and provider mapping, pgvector for semantic search, and Tailwind CSS with shadcn/ui for the interface. Late in the build I did a mobile-responsive retrofit — not a native app, but every flow works cleanly on a phone.
 
 ---
 
 ## What I learned
 
-Six weeks is not a lot of time for a project this dense. What made it possible was spending the first week entirely on data architecture and financial modeling before touching any UI. Understanding the shape of the data — how providers price services, where the variance lives, what makes a comparison trustworthy — informed every product decision downstream.
+**Six weeks is not a lot of time for a project this dense.**
+
+What made it possible was spending the first week entirely on data architecture and financial modeling before touching any UI. Understanding the shape of the data — how providers price services, where the variance lives, what makes a comparison trustworthy — informed every product decision downstream.
 
 The combination of deep quantitative analysis and modern full-stack engineering is where I do my best work. Financial modeling, data pipelines, confidence scoring, real-time systems, payment flows — these threads all converge in a marketplace like this, and pulling them together into a coherent product in six weeks was the most rewarding build I have done.

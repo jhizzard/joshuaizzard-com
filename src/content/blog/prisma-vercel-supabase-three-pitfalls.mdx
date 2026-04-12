@@ -12,6 +12,8 @@ Here they are, in the order I hit them.
 
 ## Pitfall 1: **Prisma Query Engine** not found on Vercel
 
+**Switch to the JavaScript-based client engine. The native binary does not exist on Vercel.**
+
 ### Symptom
 
 The build succeeds. Vercel shows a green checkmark. You hit your first API route and get a 500:
@@ -94,13 +96,15 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 ```
 
-The key detail: `new PrismaClient({ adapter })`. Without this, Prisma still tries to load the native engine at runtime, even if `engineType = "client"` is set in the schema. **The adapter is what actually activates the JS engine path.**
+The key detail: `new PrismaClient({ adapter })`. Without this, Prisma still tries to load the native engine at runtime, even if `engineType = "client"` is set in the schema. The adapter is what actually activates the JS engine path.
 
 After all three changes: `npx prisma generate`, redeploy, and the engine error disappears.
 
 ---
 
 ## Pitfall 2: **Supabase Dedicated Pooler** is IPv6-only
+
+**Vercel serverless functions run in an IPv4-only network. The connection attempt never completes.**
 
 ### Symptom
 
@@ -135,6 +139,8 @@ DIRECT_URL="postgresql://postgres.xxxx:PASSWORD@db.xxxxxxxxxxxx.supabase.co:5432
 ---
 
 ## Pitfall 3: **URL-encode the database password**
+
+**Special characters in your password break URL parsing. Prisma sees a malformed connection string.**
 
 ### Symptom
 
@@ -178,6 +184,8 @@ postgresql://postgres.xxxx:my%2Bpass%23word%2F123@aws-0-us-east-1.pooler.supabas
 
 ## The checklist
 
+**Three issues, three fixes, zero ambiguity.**
+
 <PullQuote>Check all three before your first deploy. Each one costs a debug cycle if you discover it in production.</PullQuote>
 
 Check all three before your first deploy. Each one costs a debug cycle if you discover it in production.
@@ -186,4 +194,4 @@ Check all three before your first deploy. Each one costs a debug cycle if you di
 2. **IPv4 pooler:** Use the Shared Pooler URL (`aws-0-<region>.pooler.supabase.com`), not the Dedicated Pooler.
 3. **Encoded password:** Run your password through `urllib.parse.quote` before embedding it in the URL.
 
-Three issues, three fixes, zero ambiguity. Save yourself the three hours I did not.
+Three issues, three fixes, zero ambiguity. Save yourself the **three hours** I did not.

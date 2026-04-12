@@ -14,15 +14,19 @@ When I left finance to build software, I expected the same tooling maturity. Wha
 
 ## The problem with tmux in 2026
 
-tmux is a remarkable piece of software. It has been rock-solid for nearly two decades and I used it daily for years. But it was designed for a world where one human types into one shell at a time, and that world no longer exists.
+**tmux is a remarkable piece of software — but it was designed for a world where one human types into one shell at a time.**
+
+It has been rock-solid for nearly two decades and I used it daily for years. But that world no longer exists.
 
 On any given afternoon I have four Claude Code agents running simultaneously — one refactoring a database layer, one writing tests, one debugging a deployment, one scaffolding a new feature. Each agent outputs hundreds of lines per minute. tmux shows me four rectangles of scrolling text with no indication of what any of them are actually doing.
 
-Is agent two thinking or stuck? Did agent four finish its edit or error out? Is anyone listening on port 3000 yet? tmux cannot answer these questions. **I have to read the output myself, which defeats the purpose of running agents in the first place.**
+Is agent two thinking or stuck? Did agent four finish its edit or error out? Is anyone listening on port 3000 yet? tmux cannot answer these questions. I have to read the output myself, which defeats the purpose of running agents in the first place.
 
 ## What I wanted
 
-I wanted my Bloomberg terminal back, but for code. Specifically:
+**I wanted my Bloomberg terminal back, but for code.**
+
+Specifically:
 
 - **Status at a glance.** A colored dot next to each terminal — green for idle, blue for thinking, amber for editing, red for errored. No reading required.
 - **Type detection.** The panel should know whether it is running a shell, a Claude Code session, a Gemini CLI session, or a Python server — and label itself accordingly.
@@ -34,25 +38,31 @@ I wanted my Bloomberg terminal back, but for code. Specifically:
 
 ## Why the browser
 
-The first question everyone asks is why I put terminals in a browser instead of building a native app. Three reasons.
+**The first question everyone asks is why I put terminals in a browser instead of building a native app.**
 
-First, **CSS Grid** gives me layout flexibility that would take thousands of lines of platform-specific window management code. Switching from a 2x2 grid to a 3x2 grid is one CSS property change.
+Three reasons.
+
+First, CSS Grid gives me layout flexibility that would take thousands of lines of platform-specific window management code. Switching from a 2x2 grid to a 3x2 grid is one CSS property change.
 
 Second, xterm.js is the best terminal emulator outside of native code. It handles everything from ANSI escape sequences to mouse events to ligature rendering. It has been battle-tested by VS Code, Theia, and dozens of other projects.
 
-Third, **the browser is the universal runtime**. No window manager plugins, no platform-specific builds, no Electron wrapper. You run `npx termdeck` and it opens in your default browser. That is the entire setup.
+Third, the browser is the universal runtime. No window manager plugins, no platform-specific builds, no Electron wrapper. You run `npx termdeck` and it opens in your default browser. That is the entire setup.
 
 ## How it works
 
-TermDeck runs an Express server that spawns real PTY processes via node-pty. Each terminal gets its own WebSocket connection. The server watches PTY output through a pattern-based analyzer that detects what each terminal is doing — parsing prompts, status markers, port bindings, and error patterns. Every two seconds it broadcasts a metadata update to the dashboard.
+**TermDeck runs an Express server that spawns real PTY processes via node-pty.**
 
-The client is a single HTML file with **zero build step**. Vanilla JavaScript, CDN-loaded xterm.js, CSS Grid layouts. It connects via WebSocket, renders the terminal, and overlays the metadata that the server provides.
+Each terminal gets its own WebSocket connection. The server watches PTY output through a pattern-based analyzer that detects what each terminal is doing — parsing prompts, status markers, port bindings, and error patterns. Every two seconds it broadcasts a metadata update to the dashboard.
+
+The client is a single HTML file with zero build step. Vanilla JavaScript, CDN-loaded xterm.js, CSS Grid layouts. It connects via WebSocket, renders the terminal, and overlays the metadata that the server provides.
 
 ---
 
 ## What comes next
 
-TermDeck is the capture layer. It sees everything happening across your terminals. But **seeing is not remembering, and remembering is not learning**.
+**TermDeck is the capture layer — but seeing is not remembering, and remembering is not learning.**
+
+It sees everything happening across your terminals.
 
 That is where the rest of the stack comes in. **Engram** is persistent memory — a Supabase-backed store with hybrid search that records every session, command, and decision across all projects. **Rumen** is the async learning layer — it synthesizes overnight, finds patterns across weeks of work, and surfaces insights you did not ask for but needed.
 
@@ -60,7 +70,9 @@ Together they form a developer brain: TermDeck captures, Engram stores, Rumen le
 
 ## Try it
 
-TermDeck is MIT licensed and available now. **One command to install, zero configuration required.**
+**One command to install, zero configuration required.**
+
+TermDeck is MIT licensed and available now.
 
 <Callout variant="tip">No config files, no build step, no dependencies to manage. Just run `npx termdeck` and your dashboard opens in the browser.</Callout>
 
