@@ -77,7 +77,7 @@ export default function Home() {
       <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 pt-24 sm:pt-32 pb-20 sm:pb-28">
         <div className="flex flex-col items-center text-center">
           <div className="font-mono text-xs tracking-wider text-muted-foreground uppercase mb-6">
-            joshuaizzard.dev
+            joshuaizzard.com
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight">
             Joshua Izzard

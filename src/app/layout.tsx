@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://joshuaizzard.com"
+  ),
   title: "Joshua Izzard — Builder",
   description:
     "Joshua Izzard — developer tooling, AI systems, and the boring infrastructure that makes them work.",
@@ -10,6 +13,8 @@ export const metadata: Metadata = {
     description:
       "Developer tooling, AI systems, and the boring infrastructure that makes them work.",
     type: "website",
+    url: "https://joshuaizzard.com",
+    siteName: "Joshua Izzard",
   },
   twitter: {
     card: "summary_large_image",
