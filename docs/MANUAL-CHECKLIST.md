@@ -92,7 +92,7 @@ If joshuaizzard.com shows a Vercel error page, DNS hasn't propagated yet. Wait 1
 
 ## 7. Test in Codespaces (optional, 5 min per repo)
 
-For each repo (termdeck, engram, rumen):
+For each repo (termdeck, mnemos, rumen):
 1. Go to the GitHub repo page
 2. Click the green **Code** button
 3. Click the **Codespaces** tab
@@ -100,7 +100,7 @@ For each repo (termdeck, engram, rumen):
 5. Wait for it to boot (~2 min)
 6. In the terminal that appears:
    - TermDeck: `npm run dev` → click the port-forwarded URL → verify dashboard loads
-   - Engram: `npm run build` → should compile with zero errors
+   - Mnemos: `npm run build` → should compile with zero errors
    - Rumen: `npm run typecheck` → should pass with zero errors
 
 ---

@@ -39,14 +39,14 @@ const flagship: Project[] = [
     links: [{ label: "GitHub", href: "https://github.com/jhizzard/termdeck" }],
   },
   {
-    title: "Engram",
+    title: "Mnemos",
     tagline: "Persistent memory for AI coding sessions",
     description:
       "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, cross-project recall, and automatic dedup. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.",
     tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
     status: "Live \u00b7 v0.1.0",
     statusColor: "green",
-    links: [{ label: "GitHub", href: "https://github.com/jhizzard/engram" }],
+    links: [{ label: "GitHub", href: "https://github.com/jhizzard/mnemos" }],
   },
   {
     title: "Rumen",
