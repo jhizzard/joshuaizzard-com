@@ -30,33 +30,45 @@ type Project = {
 const flagship: Project[] = [
   {
     title: "TermDeck",
-    tagline: "Browser-based terminal multiplexer with AI agent awareness",
+    tagline: "The terminal that remembers what you fixed last month",
     description:
-      "tmux in your browser, but it knows what your AI agents are doing. Real PTYs in 6 grid layouts, per-terminal theming, output analyzer that detects Claude Code / Gemini CLI / Python servers. Status dots show active, thinking, idle, and errored at a glance. MIT, vanilla JS client, no build step.",
-    tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite"],
-    status: "Live \u00b7 v0.1.1",
+      "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour. Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
+    tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite", "MCP"],
+    status: "Live \u00b7 v0.2.2",
     statusColor: "green",
-    links: [{ label: "GitHub", href: "https://github.com/jhizzard/termdeck" }],
+    links: [
+      { label: "GitHub", href: "https://github.com/jhizzard/termdeck" },
+      { label: "npm", href: "https://www.npmjs.com/package/@jhizzard/termdeck" },
+      { label: "Docs", href: "https://termdeck-docs.vercel.app" },
+    ],
   },
   {
     title: "Mnestra",
-    tagline: "Persistent memory for AI coding sessions",
+    tagline: "Persistent developer memory for Claude Code, Cursor, Windsurf",
     description:
-      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, cross-project recall, and automatic dedup. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.",
+      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature \u2014 also works standalone with any MCP client.",
     tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
-    status: "Live \u00b7 v0.1.0",
+    status: "Live \u00b7 v0.2.0",
     statusColor: "green",
-    links: [{ label: "GitHub", href: "https://github.com/jhizzard/mnestra" }],
+    links: [
+      { label: "GitHub", href: "https://github.com/jhizzard/mnestra" },
+      { label: "npm", href: "https://www.npmjs.com/package/@jhizzard/mnestra" },
+      { label: "Docs", href: "https://termdeck-docs.vercel.app/mnestra/" },
+    ],
   },
   {
     title: "Rumen",
-    tagline: "The part of the brain that doesn\u2019t sleep",
+    tagline: "The part of your memory that keeps processing after you stop working",
     description:
-      "Continues reasoning over your work after you close your laptop. Runs as a Supabase Edge Function on a 15-minute cron, finding cross-project patterns, synthesizing insights from weeks of accumulated data, and surfacing them proactively in your next session. The LLM is stateless. Rumen isn\u2019t.",
-    tech: ["TypeScript", "Supabase Edge Functions", "pg", "pgvector"],
-    status: "Live \u00b7 v0.1.0",
+      "Async learning layer that runs on top of any pgvector memory store. Extract \u2192 Relate \u2192 Synthesize loop: pulls recent memories, finds cross-project patterns, synthesizes insights via Haiku, writes them back. Ships as a Supabase Edge Function on a 15-minute pg_cron schedule. Cost-guarded. The LLM is stateless. Rumen isn\u2019t.",
+    tech: ["TypeScript", "Supabase Edge Functions", "pg", "pgvector", "Claude Haiku"],
+    status: "Live \u00b7 v0.2.2",
     statusColor: "green",
-    links: [{ label: "GitHub", href: "https://github.com/jhizzard/rumen" }],
+    links: [
+      { label: "GitHub", href: "https://github.com/jhizzard/rumen" },
+      { label: "npm", href: "https://www.npmjs.com/package/@jhizzard/rumen" },
+      { label: "Docs", href: "https://termdeck-docs.vercel.app/rumen/" },
+    ],
   },
 ];
 
