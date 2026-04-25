@@ -32,9 +32,9 @@ const flagship: Project[] = [
     title: "TermDeck",
     tagline: "The terminal that remembers what you fixed last month",
     description:
-      "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour. Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
+      "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour, in-browser setup wizard with Supabase MCP auto-fill, `termdeck doctor` version check, and one-command stack installer (`npx @jhizzard/termdeck-stack`). Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
     tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite", "MCP"],
-    status: "Live \u00b7 v0.2.2",
+    status: "Live \u00b7 v0.6.0",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/termdeck" },
@@ -46,9 +46,9 @@ const flagship: Project[] = [
     title: "Mnestra",
     tagline: "Persistent developer memory for Claude Code, Cursor, Windsurf",
     description:
-      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature \u2014 also works standalone with any MCP client.",
+      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import, auto-read of `~/.termdeck/secrets.env` so Mnestra starts without sourcing first. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature \u2014 also works standalone with any MCP client.",
     tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
-    status: "Live \u00b7 v0.2.0",
+    status: "Live \u00b7 v0.2.1",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/mnestra" },
@@ -60,9 +60,9 @@ const flagship: Project[] = [
     title: "Rumen",
     tagline: "The part of your memory that keeps processing after you stop working",
     description:
-      "Async learning layer that runs on top of any pgvector memory store. Extract \u2192 Relate \u2192 Synthesize loop: pulls recent memories, finds cross-project patterns, synthesizes insights via Haiku, writes them back. Ships as a Supabase Edge Function on a 15-minute pg_cron schedule. Cost-guarded. The LLM is stateless. Rumen isn\u2019t.",
+      "Async learning layer that runs on top of any pgvector memory store. Extract \u2192 Relate \u2192 Synthesize loop: pulls recent memories, finds cross-project patterns, synthesizes insights via Haiku, writes them back. Ships as a Supabase Edge Function on a 15-minute pg_cron schedule. Cost-guarded. Three-pass JSON parser hardens Haiku output, context-size-aware confidence normalization. The LLM is stateless. Rumen isn\u2019t.",
     tech: ["TypeScript", "Supabase Edge Functions", "pg", "pgvector", "Claude Haiku"],
-    status: "Live \u00b7 v0.2.2",
+    status: "Live \u00b7 v0.4.3",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/rumen" },
@@ -432,7 +432,7 @@ export default function Home() {
             /about
           </div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-8">
-            Wyoming &rarr; Moscow &rarr; Chicago &rarr; terminal.
+            Wyoming &rarr; Moscow &rarr; Chicago &rarr; Silicon Valley.
           </h2>
           <div className="space-y-5 text-base sm:text-lg leading-relaxed text-foreground/90">
             <p>
