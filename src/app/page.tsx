@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -34,7 +35,7 @@ const flagship: Project[] = [
     description:
       "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour, in-browser setup wizard with Supabase MCP auto-fill, `termdeck doctor` version check, and one-command stack installer (`npx @jhizzard/termdeck-stack`). Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
     tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite", "MCP"],
-    status: "Live \u00b7 v0.6.1",
+    status: "Live \u00b7 v0.6.9",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/termdeck" },
@@ -48,7 +49,7 @@ const flagship: Project[] = [
     description:
       "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import, auto-read of `~/.termdeck/secrets.env` so Mnestra starts without sourcing first. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature \u2014 also works standalone with any MCP client.",
     tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
-    status: "Live \u00b7 v0.2.1",
+    status: "Live \u00b7 v0.2.2",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/mnestra" },
@@ -300,6 +301,16 @@ export default function Home() {
       {/* ==================== Hero ==================== */}
       <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 pt-24 sm:pt-32 pb-20 sm:pb-28">
         <div className="flex flex-col items-center text-center">
+          <div className="mb-8 h-40 w-40 sm:h-48 sm:w-48 overflow-hidden rounded-full border border-border shadow-md">
+            <Image
+              src="/joshua-izzard-bw.jpg"
+              alt="Joshua Izzard portrait"
+              width={384}
+              height={384}
+              priority
+              className="h-full w-full object-cover"
+            />
+          </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight">
             Joshua Izzard
           </h1>

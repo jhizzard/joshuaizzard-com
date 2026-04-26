@@ -1,0 +1,342 @@
+---
+title: "Nine patches in 48 hours, and the architectural defense that ended it"
+date: "2026-04-26"
+description: "A tester kept hitting the same setup wizard. Each fix made the next bug visible. Eight patch releases later — the ninth one wasn't another bug fix. It was the framework that proved the previous eight had been the wrong shape all along."
+tags: ["termdeck", "developer-tools", "debugging", "wizard-design", "anti-patterns", "migration-drift", "preconditions"]
+draft: true
+---
+
+A tester I'll call B. installed `@jhizzard/termdeck-stack` on a Friday afternoon. Ran the setup wizard. It cancelled.
+
+He tried again. It cancelled.
+
+He tried again Saturday morning. Cancelled.
+
+He upgraded. Cancelled.
+
+He upgraded again. Cancelled.
+
+He upgraded again — and this time the wizard ran clean through. Mnestra was up. Then he ran the next wizard for the next tier and **that one** failed.
+
+He tried again. The second wizard ran clean. Then the cron job that wizard had scheduled tried to fire — and **that** failed.
+
+He fixed that. Re-ran. The wizard reported "6 migrations applied cleanly." A column the wizard was supposed to add was still missing.
+
+He fixed that too — manually, with another instance of Claude. Re-ran one more time. Now the function deployed and the manual test passed. But the schedule still wasn't running, because the database extensions the schedule depends on weren't enabled.
+
+That's eight separate failures in forty-eight hours, against eight shipped patch releases — and a ninth release that wasn't a patch at all. Each of the first eight fixes was correct for what it was scoped to, and each of them made the next failure visible. The ninth release was different: it was the architectural defense that should have been there from the start, and it closed the entire failure class instead of patching another instance.
+
+This is the post I want every CLI author and every multi-package maintainer to read before their next setup flow.
+
+## The setup that broke
+
+`termdeck init --mnestra` is the wizard that wires up TermDeck's persistent memory layer. It collects five secrets — Supabase URL, service role key, Postgres connection string, OpenAI key, optional Anthropic key — applies six SQL migrations, and writes the credentials to `~/.termdeck/secrets.env` so the server can pick them up on the next launch.
+
+Five prompts. Six migrations. One file write. That's the whole thing.
+
+It cancelled on B. five times.
+
+## Bug 1 — the one I shipped to production
+
+B.'s first report came in over WhatsApp. *"It cancelled after I entered the Anthropic API key."*
+
+I ran the wizard locally. Worked. Pasted his exact key shape. Worked. Tried it in three terminals. Worked.
+
+He's on **MobaXterm SSH** — a Windows X server that wraps PuTTY. Different terminal driver, different keystroke encoding. When he pressed Enter, his terminal sent `\r\n` as a single chunk. My raw-mode secret prompt matched the `\r`, resolved the promise, and dropped the trailing `\n` on the floor.
+
+Worse, the next chunk that arrived sometimes contained a stray `\x03` (Ctrl-C in raw mode), which my code interpreted as "user cancelled" and `process.kill`-ed the wizard.
+
+Three separate bugs in one prompt loop:
+
+1. CRLF leak — `\r` resolved, `\n` polluted the next prompt.
+2. ANSI escape sequences (cursor reports, paste-bracketing) being fed into the password buffer.
+3. Hard SIGINT on raw-mode Ctrl-C, which masked the CRLF leak.
+
+I shipped v0.6.1 with seven regression fixtures. CRLF, LF, mid-buffer ANSI cursor-position-reports, bracketed-paste markers, soft-cancel on Ctrl-C, DEL/backspace, type-ahead carry-over.
+
+I told B. it was fixed.
+
+## Bug 2 — the one v0.6.1 made visible
+
+B. ran v0.6.1. *"Cancelled after key again."*
+
+I went back into the code and traced what happened **after** the secret prompt resolved. Two lines later, the wizard called `prompts.confirm("Proceed with setup for project X?")`. That confirm used readline. Readline read from the same stdin we'd just been carefully cleaning bytes out of.
+
+If `\n` had leaked from the prior prompt — even a trace of stray bytes from focus events or paste-bracketing — readline would resolve the confirm with empty input. Empty input → defaults to "no" → wizard cancels.
+
+The right fix wasn't to harden the confirm. The right fix was to **delete the confirm**.
+
+The user had already opted in by typing `termdeck init --mnestra` and supplying every secret. Mnestra's migrations are all `IF NOT EXISTS`, so re-runs are idempotent. The confirm gate was friction without value, and on B.'s terminal it was the consistent failure surface.
+
+Shipped v0.6.2: removed the confirm.
+
+I told B. it was fixed.
+
+## Bug 3 — the one v0.6.2 made visible
+
+B. ran v0.6.2. *"It's killing before writing the file. Postgres line not added to my existing file, so it wasn't changed."*
+
+That sentence is the moment the architecture mistake became unignorable.
+
+I read it three times. I kept reading it. Because B. was telling me something completely different from what I'd been hearing in the prior reports.
+
+He wasn't saying the wizard was failing at the prompt. He was saying that he had **typed in his keys**, and they **had not been saved**. He could open his existing `~/.termdeck/secrets.env` and see that the Postgres line was not there.
+
+I pulled up `init-mnestra.js` and looked at the order of operations:
+
+```js
+collectInputs(...)              // 5 prompts → returns { url, dbUrl, openai, ... }
+process.stdout.write('\n')
+step('Connecting to Supabase...')
+client = await pgRunner.connect(inputs.databaseUrl)   // ← throws on failure
+checkExistingStore(client)                            // ← throws on failure
+applyMigrations(client, false)                        // ← throws on failure
+writeLocalConfig(inputs, false)                       // ← writes secrets.env
+```
+
+The file write was at the bottom. If anything between `pgRunner.connect` and `applyMigrations` threw — and there are good reasons it might, like a misconfigured connection string, an IPv4/IPv6 issue, a network blip — the wizard exited before `writeLocalConfig` ever ran.
+
+Every failed attempt B. had made for **two days** discarded everything he typed in.
+
+That's the bug. That's been the bug the whole time. Not the prompt. Not the confirm. The architecture.
+
+## The structural fix
+
+The fix is one sentence: **persist user-supplied data immediately after collection, before any risky downstream operation.**
+
+I split the writes:
+
+```js
+inputs = await collectInputs(...)
+writeSecretsFile(inputs, dryRun)          // ← NOW: before pg
+client = await pgRunner.connect(inputs.databaseUrl)
+checkExistingStore(client)
+applyMigrations(client, false)
+writeYamlConfig(dryRun)                   // ← only after migrations succeed
+```
+
+`writeSecretsFile` lands the credentials to disk regardless of what the database does. `writeYamlConfig` (which flips `rag.enabled: true`) only runs when migrations apply cleanly, so the server can never come up against a half-applied schema.
+
+I also added a resume path. On the next run, `collectInputs` reads `secrets.env`, sees it's already complete, and offers *"Found saved secrets. Reuse?"* If the user passes `--yes`, the wizard skips every prompt and goes straight to the database step. If they pass `--reset`, it ignores saved values and re-prompts.
+
+On any pg failure, the wizard now prints:
+
+```
+Your secrets are saved at ~/.termdeck/secrets.env.
+To retry just the database step (no need to re-enter keys):
+  termdeck init --mnestra --yes
+```
+
+That's v0.6.3. I tested it locally with three regression cases, then live against my real Supabase store (4,669 existing memories). The persist-first behavior held; my secrets file was byte-identical after the run.
+
+I told B. it was fixed.
+
+## Bug 4 — the cache trap
+
+B. ran the wizard. Same error. *"Still cancels after Anthropic API."*
+
+I was about to start patching another layer when I realized I had no evidence he was actually on v0.6.3. I asked him for `termdeck --version`.
+
+He was on **v0.6.0**. The whole time. Three releases I thought he'd been testing against. Zero of them on his machine.
+
+His npm cache had latched onto an old version, and `npm i -g @jhizzard/termdeck@latest` was happily resolving from cache instead of the registry. The fix was `npm cache clean --force && npm i -g @jhizzard/termdeck@latest`.
+
+He cleared the cache. Upgraded properly. Ran v0.6.3. The wizard ran clean — six migrations applied against his Supabase project, secrets persisted, config flipped, status verified. **Mnestra was up.**
+
+Then he ran `termdeck init --rumen` for the next tier and hit a fifth bug.
+
+## Bug 5 — the wrong handle on a documented requirement
+
+The Rumen wizard runs `supabase link --project-ref <ref>`. The Supabase CLI requires authentication. Out of the box on a fresh shell, that authentication is missing, and the CLI prints:
+
+> Access token not provided. Supply an access token by running `supabase login` or setting the `SUPABASE_ACCESS_TOKEN` environment variable.
+
+That message is *technically* actionable. But `supabase login` opens a browser, and B. is on SSH from MobaXterm. The browser path is broken for him. He had to know to set the env var.
+
+The right behavior for our wizard is to detect this exact stderr signature and emit a path-aware hint:
+
+```
+The Supabase CLI needs a Personal Access Token to link your project.
+On a desktop install you can run `supabase login`, but that opens a
+browser, so SSH/headless users should use the env-var path instead:
+
+  1. Generate a token: https://supabase.com/dashboard/account/tokens
+  2. Export it in your shell:
+       export SUPABASE_ACCESS_TOKEN=sbp_...
+  3. Re-run: termdeck init --rumen
+```
+
+Shipped v0.6.4 with the detection in `link()`. Four regression tests pin the detector against the literal Supabase CLI stderr, against the env-var-name fallback, against false positives on unrelated link errors, and against the content of the printed hint.
+
+Rumen wizard ran clean through. Edge Function deployed. Migration applied. Cron schedule set.
+
+I told B. it was fixed.
+
+## Bug 6 — the schema underneath had drifted between two packages
+
+Sunday morning, B. sent me logs from his Supabase dashboard. The Rumen Edge Function had been running on its 15-minute cron all night. **Every single tick had failed.**
+
+```
+ERROR: column m.source_session_id does not exist  (SQLSTATE 42703)
+   at extractSignals (extract.js:33)
+   at runRumenJob (index.js:52)
+```
+
+The Rumen Extract phase queries `memory_items` and groups by `source_session_id` to find eligible sessions for synthesis. The column wasn't in B.'s schema.
+
+It was in mine. It had to be — Rumen had been running against my own production store for weeks. Why didn't B. have it?
+
+Because **my store had been built up from the project's earliest days, when this thing was called `rag-system`, before it became Engram, before it became Mnestra**. The original rag-system schema had a `source_session_id TEXT` column on `memory_items`. When I rebranded to Mnestra and cut a clean migration set for the public package, that column got dropped — silently, accidentally, and with no test that would have caught it.
+
+The published `@jhizzard/mnestra` migrations don't add the column. The published `@jhizzard/rumen` Extract phase requires it. So **every fresh install ever** — anyone who didn't carry forward the rag-system schema — got a Mnestra that worked for TermDeck and Flashback but couldn't host Rumen. The bug was sitting there waiting for its first user with a clean Supabase project. That user was B.
+
+The fix is one new migration:
+
+```sql
+-- 007_add_source_session_id.sql
+ALTER TABLE memory_items
+  ADD COLUMN IF NOT EXISTS source_session_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_memory_items_source_session_id
+  ON memory_items (source_session_id)
+  WHERE source_session_id IS NOT NULL;
+```
+
+I shipped that as v0.6.5 of TermDeck and v0.2.2 of Mnestra (two coordinated bumps with audit-trail entries on both sides plus the meta-installer). I told B. to upgrade and re-run.
+
+I thought we were done. We weren't.
+
+## Bug 7 — the migration we shipped didn't run
+
+B. upgraded. Re-ran the wizard. Got a clean run. Re-checked the column. **Still missing.**
+
+He pasted me the wizard output. *"The 6 migrations all applied cleanly but the column is still missing."*
+
+Six migrations. Not seven. The new migration we shipped in v0.6.5 — the file that bundles into the npm tarball at `packages/server/src/setup/mnestra-migrations/007_add_source_session_id.sql` — never ran. I confirmed the file was in the published v0.6.5 tarball (one quick `npm pack` and a `tar -tzf`). It was there. So why wasn't the wizard seeing it?
+
+Because the migration loader had a precedence rule I'd forgotten about:
+
+```js
+function listMnestraMigrations() {
+  const fromNm = tryNodeModules('@jhizzard/mnestra');  // ← preferred
+  if (fromNm.length > 0) return fromNm;
+  return listBundled('mnestra-migrations');             // ← fallback
+}
+```
+
+The loader preferred `node_modules/@jhizzard/mnestra/migrations/*.sql` over the bundled directory. The intent at the time was forward-looking: "if the user has Mnestra installed as a peer, treat it as the source of truth so we can drop the bundled copy later." That made sense when the assumption was both copies stay in sync.
+
+The meta-installer (`@jhizzard/termdeck-stack`) installs `@jhizzard/mnestra` globally as a peer. `npm i -g @jhizzard/termdeck@latest` does **not** touch that sibling install. So B.'s global Mnestra was stuck at 0.2.1 (six migrations) while his TermDeck was at v0.6.5 (which bundled seven). Stale Mnestra silently shadowed the new bundled migration. The wizard reported "6 migrations applied" because it really was applying six — the wrong six.
+
+The fix is one inverted line:
+
+```js
+function listMnestraMigrations() {
+  const bundled = listBundled('mnestra-migrations');
+  if (bundled.length > 0) return bundled;             // ← now preferred
+  return tryNodeModules('@jhizzard/mnestra');         // ← fallback only
+}
+```
+
+Bundled first, peer node_modules as a safety-valve fallback only. Bundled is what TermDeck developed and tested against; that should win. Shipped as v0.6.8, with a regression test that simulates a fake stale Mnestra in node_modules and asserts the bundled migrations still win.
+
+I told B. it was fixed.
+
+## Bug 8 — the database extensions weren't enabled
+
+Brad upgraded again. Re-ran. The wizard reported seven migrations. The column existed. The Edge Function deployed. The manual POST test returned 200.
+
+But the cron schedule still wasn't firing. He sent me the logs.
+
+`pg_cron` and `pg_net` weren't enabled on his Supabase project. The schedule SQL had created a row in `cron.job`, but pg_cron wasn't actually running, so nothing fired. `pg_net` is what the cron job uses to call the Edge Function — also disabled.
+
+Both extensions are documented as prerequisites in `GETTING-STARTED.md` Step 3. The Rumen migration file `002_pg_cron_schedule.sql` mentions them in its header comment. The user was supposed to enable them in the Supabase dashboard before running `termdeck init --rumen`.
+
+You see where this is going.
+
+That's **the same failure mode as Bug 5** (token), Bug 6's pgbouncer warning, and Bug 7's mcp.json placeholder. Four of my eight patch releases were the same shape: a precondition was documented somewhere, the wizard didn't verify it, and the first user without their hand held by the doc paid the price.
+
+That's when I stopped fixing bugs and ran a longitudinal failure-class analysis on the v0.6.x lineage. Eight patches in 48 hours, classified:
+
+- **2 input-handling** (v0.6.1, v0.6.2) — terminal byte handling, prompt confirm gates
+- **1 data-lifecycle** (v0.6.3) — the persist-first fix
+- **4 external-precondition** (v0.6.4 token, v0.6.6 pgbouncer, v0.6.7 mcp.json, v0.6.9 extensions) — same shape, same defense missing
+- **2 cross-package-contract** (v0.6.5 schema drift, v0.6.8 loader shadow) — same shape: persisted state silently shadowed newer source-of-truth
+
+Four of the eight were one failure mode. That class needed an architectural defense, not a per-bug patch.
+
+## The ninth release wasn't a bug fix
+
+v0.6.9 was the deliberate close: a `auditPreconditions()` function that runs FIRST in the wizard, before any state-changing operation. It collects every external precondition gap in one pass — Supabase CLI auth, pg_cron extension, pg_net extension, Vault secret presence — and prints a consolidated report with actionable hints. The wizard refuses to proceed on any gap.
+
+```
+→ Auditing rumen preconditions... ✗
+
+3 preconditions failed:
+
+  1. ✗ The pg_cron extension is not enabled on this Supabase project
+     Enable it in the Supabase dashboard:
+       Database → Extensions → pg_cron → toggle ON
+
+  2. ✗ The pg_net extension is not enabled on this Supabase project
+     Enable it in the Supabase dashboard:
+       Database → Extensions → pg_net → toggle ON
+
+  3. ✗ Vault secret "rumen_service_role_key" is missing
+     Create it in the Supabase dashboard:
+       Project Settings → Vault → New secret
+       Name: rumen_service_role_key  (exact, case-sensitive)
+
+Fix the items above and re-run `termdeck init --rumen`. The wizard will
+not proceed; it would create state you'd have to manually clean up.
+```
+
+Plus a complementary `verifyOutcomes()` step at the end of each wizard. After migrations apply, it confirms the schema bits actually landed — including `memory_items.source_session_id`, the column whose absence cascaded into Bugs 6 and 7. That's the test that, if it had existed before v0.6.5, would have caught the entire silent-shadow saga at install time instead of cron-tick time.
+
+This release wasn't fixing a bug. It was preventing the **next four bugs** before they got reported.
+
+That's the saga. Eight patches, plus a ninth release that closed the failure class instead of another instance of it. **The first eight should have been one.**
+
+I could have skipped two of the early releases.
+
+When you get the **third report on the same flow**, stop fixing the symptom and ask what mental contract the user thinks is broken. Not the system contract — the user's contract.
+
+What B. was saying, all five times: *"I typed my keys. The wizard ate them."*
+
+That's the contract. The user's mental model is: I supplied the data, you owe me persistence. Anything that loses my work without telling me is a betrayal of that contract.
+
+The first two fixes (askSecret hardening, confirm-gate removal) were patching the *prompt layer*. They were correct, but they were the wrong abstraction layer for the user's complaint. The user wasn't frustrated about specific prompts. He was frustrated that **his work kept disappearing**.
+
+The fix at the right layer is the data lifecycle: **collect → persist → operate**, in that order, not collect → operate → persist. Once the data lifecycle is right, every failure mode preserves the user's work. The wizard can fail in ten different ways and the user's secrets are always on disk for the next attempt.
+
+And I should have caught the schema drift before it ever shipped. The Mnestra and Rumen packages have a contract: `memory_items.source_session_id` exists, is `TEXT`, and is queryable. That contract was implicit, encoded only in the running queries, never written down or tested. When I rebranded the schema and cut a fresh migration set, I broke the contract on one side without the other side knowing. The right defense would have been **a contract test that runs Rumen's Extract query against a freshly migrated Mnestra schema and asserts it doesn't throw**. Five minutes of work, would have caught the drift the day I shipped Mnestra v0.2.0. I didn't have that test. Now I do.
+
+A code reviewer named Codex flagged this exact failure mode a week earlier — "the meta-installer's docs are drifting behind the underlying packages, and that's where contract breaks will surface first." It was directionally right. Just not specific enough for me to internalize. The contract break wasn't in the docs. It was in the SQL.
+
+## Six lessons that generalize
+
+I saved these to memory after the saga because I want to use them on every project, not just this one.
+
+**1. Persist-first for any flow that takes user input before doing risky work.** Save user-supplied data to its final destination *immediately* after collection, before attempting anything that can fail (network calls, DB connects, migrations, deploys). The downstream step *will* fail eventually. When it does, the user's input must already be on disk so a re-run can resume without retyping. Mirror: only flip "feature enabled" config flags **after** the risky op succeeds, so a half-applied state can't poison startup.
+
+**2. The "onion of bugs" diagnostic.** When the same user keeps reporting failures in the same flow but each report points at a different surface symptom, stop fixing the symptom and ask what the user is frustrated about. The previous fix was probably correct for what it was scoped to, but the fix layer is wrong. Third report on the same flow = stop patching forward and rethink the architecture. The user's mental model is your tell.
+
+**3. `CREATE OR REPLACE FUNCTION` cannot change a function's return type.** This is a Postgres footgun. Postgres lets you replace the body, the language, and parameter defaults — but not the return type. If migration N defines `fn() RETURNS X` and migration N+M changes it to `RETURNS Y`, re-running the full migration suite from a clean checkout against an already-upgraded database fails at migration N. Either lock function signatures from migration 1 forever, or explicitly `DROP FUNCTION fn(...) CASCADE` before recreating.
+
+**4. Don't reserve a flag as a no-op "for forward compatibility."** Either give it meaning now or reject it. v0.6.2 made `--yes` an explicit no-op "preserved as a stable CLI surface for callers/scripts." v0.6.3 then gave it real semantics — auto-reuse saved secrets, skip prompts. Any v0.6.2-era script that passed `--yes` for portability now silently behaves differently. Flag semantics shouldn't change between releases without a hard signal.
+
+**5. Cross-package contracts need contract tests, not goodwill.** When two packages depend on each other's runtime shape — a SQL schema, a JSON envelope, a config key — write a test that exercises the contract end-to-end against a fresh install of the lower package. Mnestra's published migrations and Rumen's `extract.ts` query had an implicit contract on `memory_items.source_session_id`. The contract lived in nobody's head and on nobody's CI. When I rebranded the schema, the contract broke silently. The first user with a clean install was the one who paid for it. The defense is a five-minute integration test: stand up a fresh Postgres, apply the lower package's migrations, run the upper package's query against it, assert no exception. If it would have caught a real bug, it's worth the test.
+
+**6. Documentation is not verification.** Anything documented as a manual step — "enable extension X," "set env var Y," "generate token Z," "replace placeholder W" — must also be runtime-checked by the code that depends on it, or the first unsupervised user pays. This is the largest lesson from the v0.6.x lineage: four of the eight patch releases were the same shape, all of them "we wrote it in the docs." The defense is a single `auditPreconditions()` step that runs first, surfaces every gap in one pass with actionable hints, and refuses to proceed until they're resolved. Mirror it with a `verifyOutcomes()` step at the end that confirms what just ran actually took effect. The cost of writing the audit is one function. The cost of not writing it is one patch release per user-reported precondition gap, indefinitely. **When you find yourself writing "the user must do X before running this" in a doc, write the runtime check first. The doc can be the secondary surface, not the primary one.**
+
+## What it took to learn this
+
+Eight bug reports from one tester. Eight patch releases. Plus a ninth release that wasn't a patch — it was the architectural defense that should have been there from the start.
+
+If you're building a wizard, a form, a deploy script, a credential collector — anything that asks for input and then does something with it — please save the input first. The user is trusting you with work they don't want to do twice. You can mess up the database step. You can mess up the auth step. You cannot mess up "I gave you my keys."
+
+If you're shipping a multi-package stack — packages that depend on each other's runtime shape — write contract tests. The contract that lives only in your head, only in your shipped queries, will break silently the moment you rebrand or refactor the lower layer. The first user with a clean install will pay for it. They shouldn't have to.
+
+And if your wizard documents preconditions, write the runtime check first. The doc is what users read once. The runtime check is what saves the user the doc didn't reach.
+
+I'd like to thank B. for staying with the project across eight reports. The fact that he kept trying — and was specific enough about what he saw to spot the persist-AFTER-failure bug from a single sentence about a missing Postgres line, the schema drift from a 500 in his Edge Function logs, the loader shadow from "6 migrations applied" when there should have been seven, the extension gap from a quiet cron that never fired — is the kind of tester feedback you can't buy. Most testers bounce after the first cancellation. He didn't. Every report he made became a real architectural improvement, not just a patch.
