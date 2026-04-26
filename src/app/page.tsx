@@ -35,7 +35,7 @@ const flagship: Project[] = [
     description:
       "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour, in-browser setup wizard with Supabase MCP auto-fill, `termdeck doctor` version check, and one-command stack installer (`npx @jhizzard/termdeck-stack`). Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
     tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite", "MCP"],
-    status: "Live \u00b7 v0.6.9",
+    status: "Live \u00b7 v0.7.0",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/termdeck" },
