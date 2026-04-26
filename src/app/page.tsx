@@ -301,14 +301,14 @@ export default function Home() {
       {/* ==================== Hero ==================== */}
       <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 pt-24 sm:pt-32 pb-20 sm:pb-28">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-8 h-40 w-40 sm:h-48 sm:w-48 overflow-hidden rounded-full border border-border shadow-md">
+          <div className="mb-8 h-56 w-56 sm:h-72 sm:w-72 overflow-hidden rounded-full border border-border shadow-md">
             <Image
               src="/joshua-izzard-bw.jpg"
               alt="Joshua Izzard portrait"
-              width={384}
-              height={384}
+              width={576}
+              height={576}
               priority
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-[center_30%]"
             />
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight">
