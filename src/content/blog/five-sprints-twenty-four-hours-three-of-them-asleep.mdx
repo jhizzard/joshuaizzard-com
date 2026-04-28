@@ -1,0 +1,122 @@
+---
+title: "Five sprints in twenty-four hours, three of them while I was asleep"
+date: "2026-04-28"
+description: "Round-the-clock TermDeck development with a phone on the nightstand. I opened five Claude Code panels, said 'inject', and went to bed. By morning, two npm versions were bumped, four lanes had reported DONE, and a 95% chopin-nashville cleanup was sitting waiting for my approval."
+tags: ["termdeck", "claude-code", "orchestration", "4+1-sprint", "agent-orchestration", "remote-control", "developer-workflow"]
+draft: false
+---
+
+Yesterday afternoon I shipped Sprint 37 of TermDeck. Thirty minutes from "open four terminals" to "all four lanes report DONE." Sprint 38 followed at twenty-three. Then npm went down for forty minutes and I spent the outage drafting Sprint 39 plans. By 8 PM I had three sprints' worth of code on my laptop, a knowledge graph rendering in my browser, and a P0 ingestion bug for B. closed in a 200-line stack-installer commit.
+
+I went to bed. By morning, three more sprints had shipped.
+
+This is what that looked like.
+
+## The setup
+
+TermDeck runs five Claude Code sessions side-by-side. Four lane workers — T1 through T4 — each owning a slice of a sprint. One orchestrator: a fifth session that fetches the lane workers' session IDs, fires the inject, monitors STATUS.md, applies the fix at sprint close.
+
+The orchestrator is the part that matters at 11 PM. The lane workers are doing the actual code; they don't need supervision. The orchestrator needs to:
+
+1. Fire the four-panel inject without me there to press Enter.
+2. Watch STATUS.md for FINDING / FIX-PROPOSED / DONE entries from each lane.
+3. Nudge any lane that goes stale 7+ minutes between turns.
+4. At close: run the test suite, apply migrations to live `petvetbid` Supabase, bump versions, write the CHANGELOG entry, draft a session-end email, commit.
+5. *Not* publish to npm. *Not* push if tests fail. *Not* enable a cron that the lane brief said needs human verification.
+
+That last bullet is the trust contract. The orchestrator can do everything except a small set of irreversible things. Those wait for me.
+
+## Two-stage submit, or: the cardinal sin
+
+Every 4+1 sprint inject runs the same wire protocol. POST a bracketed-paste payload to `/api/sessions/<id>/input`. Then — separately — POST a `\r`. Two HTTP requests per panel. Four panels. Eight requests, with a 250 ms gap between sessions and a 400 ms settle between phases.
+
+Why two stages? Because the OS-level chunk boundary into the PTY is non-deterministic. If the close marker `\x1b[201~` and the `\r` ride in one PTY write, Claude Code's input parser sometimes eats the `\r` as the last paste byte rather than a submit keystroke. Symptom: three of four panels auto-fire, the fourth sits at a visually populated input box waiting for a human to press Enter.
+
+I learned this the hard way in March, on a different sprint. Three lanes ran clean. The fourth sat there. I woke up at 3 AM to find it still sitting there. Three lanes' worth of progress, one stuck panel, six hours of orchestrator time burned on nothing.
+
+So now: two stages, every time. The orchestrator session is *physically incapable* of the single-stage variant — that path is removed from the inject script. The cardinal sin clause is in the global CLAUDE.md: *leaving a panel waiting for a human Enter press is the failure mode that costs broken sleep.*
+
+## Bedtime, 11 PM
+
+By 10:50 PM I had:
+
+- Sprint 37 published as `@jhizzard/termdeck@0.9.0`. Origin/main pushed.
+- Sprint 38 published as `@jhizzard/termdeck@0.10.0`, `@jhizzard/mnestra@0.3.0`, `@jhizzard/termdeck-stack@0.4.2`. Origin/main pushed.
+- Sprint 39 — Flashback Resurrection 2.0, the diagnostic-first sprint to close a regression that had kept Flashback toasts silent in my daily flow for nine days — drafted with four lane briefs, ready to inject.
+- A `RESTART-PROMPT-2026-04-28.md` document ready for the overnight orchestrator. Live state, what's pending, paste-ready inject sequence, things-to-NOT-do.
+
+I opened four fresh Claude Code panels in TermDeck. Then a fifth. Pasted the orchestrator's prompt block into the fifth — a thirty-line briefing that tells it to read the global rules, the project router, the restart-prompt doc, the four lane briefs, and *then* fire the inject.
+
+Said "terminals open, inject." Went to bed. Phone on the nightstand.
+
+## 2:14 AM
+
+Phone buzzed. The orchestrator had hit a question it couldn't resolve autonomously. The Edge Function I'd deployed for Sprint 38's edge-inference cron was returning `503 BOOT_ERROR` — the function imported `npm:pg` but Supabase's Deno-based Edge Runtime can't bundle pg's Node-native crypto deps. The orchestrator had diagnosed it (good) and proposed a fix: swap `npm:pg` for `npm:postgres` (postgres.js, pure JS, Deno-friendly). It wanted my OK before redeploying.
+
+I read the diff on my phone. Three call sites changed: `pool.query(text, args)` → `sql.unsafe(text, args)`. Same SQL, different client. Same return shape behind a thin shim.
+
+I texted "go." The orchestrator redeployed. Function booted clean — script size dropped 111 kB → 59 kB. Ran a test invocation. The pairwise self-join returned no response within 90 seconds. The orchestrator had already EXPLAIN-analyzed and posted the diagnosis to STATUS.md: HNSW vector index can't accelerate a per-pair distance evaluation; the query is doing a nested-loop seq-scan on 5,500 rows × 5,500 rows. Roughly 3.5 million cosine evaluations at ~50 µs each. 175 seconds. Past the Edge Function's 150-second wall-clock.
+
+This was a deeper bug than a simple deploy fix. The orchestrator's recommendation: *disable the cron for now, file a Sprint 39+ task for the proper rewrite, ship Sprint 39's substantive value (Flashback fix) without the cron path.*
+
+I texted "do it." The orchestrator unscheduled the cron via `cron.unschedule('graph-inference-tick')`, posted the diagnosis to memory for future sessions, and continued with Sprint 39 close-out.
+
+I slept until morning.
+
+## 7:00 AM
+
+Sprint 39 had shipped. `@jhizzard/termdeck@0.10.1` waiting on my publish. Four lane workers had reported DONE. Tests: 273 of 273 passing.
+
+But more than that: a different orchestrator session had spun up *while I was asleep* and run Sprint 40 — defensive hardening for the structural gaps Sprint 39 surfaced — solo. Single-lane work, no cohort needed. `@jhizzard/termdeck@0.10.2` queued behind it.
+
+Two sprints. While I was asleep. The orchestrator drafted both their session-end emails to my inbox, paste-ready restart prompts at the bottom of each, ready for whichever session I woke up into.
+
+I read the wrap emails over coffee. Approved the publishes. Two `npm publish --auth-type=web` Passkey prompts later, both versions were live on npm.
+
+## 9:00 AM — the chopin-nashville junk drawer
+
+I opened the dashboard's new D3 force-directed knowledge graph for the first time. Selected `project=chopin-nashville` from the picker. Saw a forest of nodes that obviously didn't belong: TermDeck PTY internals, Mnestra MCP architecture, podium app deployments, scheduling-tool decisions. None of it was about the Chopin Nashville Piano Competition.
+
+I queried the database directly. Of 1,139 rows tagged `chopin-nashville`, only 49 were *actually* chopin-nashville content. The other 1,090 were misclassified TermDeck / Mnestra / Rumen / podium / PVB / dor work that had fallen into the catch-all because my session-end hook's PROJECT_MAP had this entry:
+
+```js
+{ pattern: /ChopinNashville|ChopinInBohemia/i, project: 'chopin-nashville' },
+```
+
+That regex matched every cwd under `~/Documents/Graciella/ChopinNashville/`. But that directory contains thirty subdirectories, mostly *not* code. The actual Chopin Nashville competition logistics live in `Performances/`, `Sponsors/`, `Jury/`, the year folders. The code projects live in `SideHustles/TermDeck/`, `2026/ChopinInBohemia/podium/`, `SchedulingApp/`. Every one of those was getting `chopin-nashville` instead of its proper tag.
+
+The orchestrator had already fixed *forward* in the hook in a prior sprint. But the historical 1,090 mis-tagged rows had never been backfilled. Sprint 41's job.
+
+## Sprint 41 — nine minutes flat
+
+Four-lane sprint. T1 redesigned the project taxonomy — the canonical PROJECT_MAP, ordered most-specific-first so deep paths beat the catch-all, plus a `docs/PROJECT-TAXONOMY.md` reference that future code projects extend in lockstep. T2 wrote a deterministic re-tag SQL migration with eight buckets keyed on content keywords. T3 fixed the graph view's empty-state UX bug — the one that showed "No memories yet" while nodes were rendered behind it — and added an "All Projects" picker option. T4 wrote a Haiku 4.5 batch classifier to handle the residue T2's keyword pass couldn't deterministically place.
+
+Inject at 12:51 ET. Last lane reported DONE at 13:01.
+
+**Nine minutes wall-clock. From kickoff to all-four-DONE.**
+
+The fastest sprint in the project's history. Beat the prior record (Sprint 38, twenty-three minutes) by fourteen minutes. All four panels reached `status: thinking` simultaneously on first attempt — no `/poke` recovery, no mid-sprint nudge.
+
+The orchestrator's close-out (which I wasn't asleep for this time, but could have been): apply migration 012 to live `petvetbid`, then 013, then run the LLM classifier. Forty-five batches × twenty rows each. Eight hundred ninety-six rows reclassified. Zero errors. Zero invalid responses. **Eighteen cents of Anthropic spend.**
+
+Final delta: `chopin-nashville` count **957 → 40**. The forty rows that survived are the Haiku-confirmed legitimate competition-management content — actual Performances, Sponsors, Jury work. The junk drawer is closed.
+
+## What this isn't
+
+This isn't a story about agents replacing developers. The orchestrator session can't *originate* a sprint. It can't decide what's worth fixing. It can't notice that one project's name is junk-drawer pattern. It can't decide between "publish v0.10.1 immediately" and "wait, the Edge Function is broken — pause." Every decision *that mattered* came from me.
+
+What it can do is: take a thoroughly-specified plan with four parallel lane briefs, fire the inject correctly, watch the lanes work, apply the close-out steps in the right order, and *not* do the irreversible things. That's everything I'd be doing manually if I weren't asleep. It's worth the trust contract.
+
+## What changes when this works
+
+The pattern unlocks something simple: **the lag between "I had an idea" and "it's shipped" stops being measured in days.** Sprint 41 went from "open the graph and see the chopin-nashville junk drawer" to "production data is fixed" in roughly an hour. Sprint 39 — the Flashback regression I'd been ignoring for nine days because diagnosing it required real production-flow telemetry I hadn't built yet — closed overnight while I slept.
+
+The orchestrator pattern is now first-class shipped product: the in-dashboard 4+1 sprint runner (Sprint 37 T4) lets anyone with TermDeck define the lanes in a UI and click "kick off." `--isolation=worktree` makes each lane work in its own git worktree so concurrent edits can't stomp. The two-stage submit pattern is encoded server-side in `sprint-inject.js` so users can't accidentally bypass it.
+
+The orchestrator session itself, of course, doesn't ship. That's me. With my phone on the nightstand. Awake every couple of hours to read a diff and text "go."
+
+But that's fine. **The trust contract is the durable thing.** The decision boundaries — what the orchestrator can and can't do without my approval — are explicit, written down, and enforced by the runbook. Everything inside the boundary is automation. Everything outside it is judgment.
+
+That's the round-the-clock dev cycle. Five sprints. Twenty-four hours. Three of them while I was asleep.
+
+The next sprint plan is already drafted. It'll fire when I want it to.
