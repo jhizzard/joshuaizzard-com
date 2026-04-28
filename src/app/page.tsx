@@ -33,9 +33,9 @@ const flagship: Project[] = [
     title: "TermDeck",
     tagline: "The terminal that remembers what you fixed last month",
     description:
-      "Browser-based terminal multiplexer with proactive memory recall. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Real PTYs in 7 grid layouts, 8 themes, per-panel metadata overlays, onboarding tour, in-browser setup wizard with Supabase MCP auto-fill, `termdeck doctor` version check, and one-command stack installer (`npx @jhizzard/termdeck-stack`). Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
-    tech: ["Node.js", "node-pty", "xterm.js", "WebSocket", "SQLite", "MCP"],
-    status: "Live \u00b7 v0.8.0",
+      "Browser-based terminal multiplexer with proactive memory recall and a first-class orchestration layer. When a panel enters an error state, Flashback queries your persistent developer memory and surfaces similar past fixes as a non-blocking toast. Now ships with a D3.js force-directed knowledge-graph view (memory_items + memory_relationships, color-coded by relationship type), an in-dashboard 4+1 sprint runner with optional `--isolation=worktree` per-lane git worktrees, a `termdeck init --project <name>` scaffolding generator, an in-product Orchestrator Guide right-rail, and the original Real PTYs / 7 grid layouts / 8 themes / per-panel metadata / onboarding tour / in-browser setup wizard / `termdeck doctor` / one-command stack installer (`npx @jhizzard/termdeck-stack`). Part of a three-tier stack \u2014 TermDeck (display) \u2192 Mnestra (memory + graph) \u2192 Rumen (async learning). MIT, vanilla JS client, no build step, one command to install.",
+    tech: ["Node.js", "node-pty", "xterm.js", "D3.js", "WebSocket", "SQLite", "Postgres", "pgvector", "MCP"],
+    status: "Live \u00b7 v0.10.2",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/termdeck" },
@@ -45,11 +45,11 @@ const flagship: Project[] = [
   },
   {
     title: "Mnestra",
-    tagline: "Persistent developer memory for Claude Code, Cursor, Windsurf",
+    tagline: "Persistent developer memory for Claude Code, Cursor, Windsurf \u2014 now with a knowledge graph layer",
     description:
-      "MCP server that gives any AI coding tool persistent memory across sessions. Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import, auto-read of `~/.termdeck/secrets.env` so Mnestra starts without sourcing first. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature \u2014 also works standalone with any MCP client.",
-    tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "MCP"],
-    status: "Live \u00b7 v0.2.2",
+      "MCP server that gives any AI coding tool persistent memory across sessions. v0.3.0 adds four new graph MCP tools \u2014 `memory_link`, `memory_unlink`, `memory_related` (N-hop neighborhood expansion via a recursive-CTE Postgres function), and `memory_recall_graph` (graph-aware recall: vector seed \u2192 N-hop expansion \u2192 re-rank by `vector_score \u00d7 edge_weight \u00d7 recency_score`). Eight relationship types (`supersedes`, `relates_to`, `contradicts`, `elaborates`, `caused_by`, `blocks`, `inspired_by`, `cross_project_link`). Hybrid search with tiered recency decay, three-layer progressive disclosure (index \u2192 timeline \u2192 get), webhook bridge, privacy tags, export/import, auto-read of `~/.termdeck/secrets.env`. pgvector + OpenAI embeddings + Supabase. The memory layer behind TermDeck\u2019s Flashback feature and graph view \u2014 also works standalone with any MCP client.",
+    tech: ["TypeScript", "Supabase", "pgvector", "OpenAI embeddings", "Postgres CTE", "MCP"],
+    status: "Live \u00b7 v0.3.0",
     statusColor: "green",
     links: [
       { label: "GitHub", href: "https://github.com/jhizzard/mnestra" },
