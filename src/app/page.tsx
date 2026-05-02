@@ -308,7 +308,7 @@ export default function Home() {
               width={576}
               height={576}
               priority
-              className="h-full w-full object-cover object-[center_20%]"
+              className="h-full w-full object-cover object-top"
             />
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight">
