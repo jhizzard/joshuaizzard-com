@@ -1,0 +1,170 @@
+---
+title: "The 3+1+1 pattern: how a Codex auditor caught four bugs in fourteen minutes"
+date: "2026-05-03"
+description: "TermDeck v1.0 shipped. Same day, an outside user surfaced a fundamental bug. Same day plus one, my own daily-driver revealed two more fundamental bugs hiding for two days. Twenty-four hours, two hotfixes, four agent catches, one new failure class, one canonized sprint pattern. Here is what tonight taught me."
+tags: ["termdeck", "multi-agent", "codex", "claude-code", "sprint-pattern", "post-mortem"]
+draft: true
+---
+
+TermDeck v1.0 shipped on a Saturday morning. Eight sprints of multi-agent substrate work graduating from "Claude Code multiplexer with extras" to a production mixed-agent orchestrator. Same day, the only outside user — Brad — surfaced a fundamental bug. v1.0.1 hotfix shipped twenty-eight hours later. Same evening, my own daily-driver Mnestra revealed two MORE fundamental bugs hiding for two days. v1.0.2 mini-sprint authored at 19:18 ET, FIX-LANDED fifty-one minutes later, published thirty minutes after that.
+
+In the twenty-four-hour arc, twenty-five-plus memories landed in long-term storage, four real bugs were caught by an auditor agent _before_ they shipped, two structural-gap discoveries surfaced, one new failure class joined the taxonomy, and a sprint-orchestration pattern got canonized across all my projects. **This is what tonight taught me.**
+
+<PullQuote>Two hotfixes in twenty-four hours, four agent catches in fourteen minutes, two structural-gap discoveries, one new failure class, one canonized sprint pattern.</PullQuote>
+
+---
+
+## The three crises
+
+### Crisis 1 — Brad's schema drift (Sprint 51.5 trigger)
+
+Brad ran `npm install -g @jhizzard/termdeck@latest` and got the v1.0.0 packages. His database was frozen. Sprint 38 onward never landed despite the npm packages bundling it.
+
+Root cause: the install wizard correctly applies migrations 002 and 003 with templating, but only on the FRESH-INSTALL code path. There was no code that diffed an existing install against the bundled migration set. After `npm install -g @latest`, the npm packages were current; the database was frozen at first-kickstart.
+
+Sprint 51.5 (audit-upgrade) closed this — Class A, Schema drift — on every existing install going forward. Eight worker lanes across two days, all-Claude. Shipped v1.0.1. I thought we were done.
+
+### Crisis 2 — source_agent column drift on my own daily-driver (mid-Sprint 51.6 setup)
+
+Codex was running its memory dump on a chopin-in-bohemia work session. It tried to write four memories tagged `source_agent='codex'`. The writes failed because the `source_agent` column was missing on `petvetbid` — _despite_ Mnestra migration 015 being installed as a file in the npm tarball.
+
+**Same Class A drift pattern as Brad's bug, manifesting on my own daily-driver.** Codex applied mig 015 manually before writing the four memories. _That_ discovery is what made me run the live psql probe at 19:13 ET — to see if other tables were also stale.
+
+### Crisis 3 — memory_sessions silent ingestion break (Sprint 51.6 trigger)
+
+Live psql showed `memory_sessions` stuck at 289 rows with `max(ended_at) = 2026-05-01 20:40 UTC`. **Two days of silent session loss.** Every Claude Code session I had ended in that window — twenty-plus — produced ZERO new rows. Background cron telemetry looked healthy. `memory_items` _was_ growing through the MCP path. But the session-end-hook → memory_sessions write path was broken.
+
+Sprint 51.6 mini-sprint authored 19:18 ET to fix it.
+
+---
+
+## The reclassification: not execution failure, architectural omission
+
+I expected Sprint 51.6 to be a quick smoke test — apply mig 015 (already done by Codex), confirm hooks resume writing memory_sessions. **Wrong.** Twenty minutes after inject, the worker lane assigned to schema audit posted a finding that reclassified the bug entirely.
+
+The bundled session-end hook **never had a memory_sessions write path**. `grep -n "memory_sessions"` against installed AND bundled returned ZERO matches.
+
+The 289 existing rows came from my PRIOR personal `~/Documents/Graciella/rag-system/hooks/memory-session-end.js` spawner, which invoked `~/Documents/Graciella/rag-system/src/scripts/process-session.ts:131` as the actual writer. That writer parsed transcripts, computed timestamps, INSERT'd one row per session.
+
+On 2026-05-02 at 13:24 ET, a `termdeck init` run overwrote my installed hook with the bundled TermDeck hook. The original rag-system spawner was preserved as `.bak.20260502-132414`. **Both pre- and post-swap bundled hook versions write ONLY to `memory_items`.**
+
+Effect: every session-end since 2026-05-02 13:24 ET wrote a session_summary row to `memory_items` but nothing to `memory_sessions`. The 289 baseline was my last session under the rag-system hook before the swap.
+
+This is not a broken write that fails at runtime — there is no write to break. The pattern is fundamentally different from Class A drift. **Joined the failure-class taxonomy as Class M — Architectural omission (write-path absence).**
+
+<PullQuote>Same failure pattern as Brad's Class A drift, just at the agent-context layer instead of DB-schema layer.</PullQuote>
+
+---
+
+## The 3+1+1 pattern and why it works
+
+Sprint 51.5 was all-Claude. Four worker lanes, no auditor. The lanes shipped a structurally-correct sprint that nonetheless missed:
+
+- source_agent emission misattribution
+- A Phase-B-doesn't-refresh-hook GAP that meant fixes never reached user filesystems
+- An upsert idempotency bug that would 409 on duplicate fires
+- A migration constraint-guard that would falsely skip on unrelated same-named constraints
+
+**Why?** All four workers shared the same Claude training and made the same shared assumptions.
+
+Sprint 51.6 added Codex as auditor. Not as a peer worker — _as a reviewer_. The auditor's job was adversarial review: independently reproduce worker findings, audit in-progress code BEFORE FIX-LANDED rather than rubber-stamping after, surface gaps the workers' shared assumptions blinded them to.
+
+Codex caught all four of those bugs in **fourteen minutes**. By READING the worker's WIP code rather than waiting for FIX-LANDED. The triangulation prevented shared blind spots from reaching production.
+
+The pattern is structurally distinct from a previous mixed-peer approach (where Codex / Gemini / Grok ran AS lanes alongside Claude, sometimes called "mixed 4+1"). **The auditor role is reviewer-not-author.** ~25% of sprint capacity goes to audit instead of code; net positive when the alternative is a hotfix loop.
+
+I named it the **3+1+1 pattern**: three worker lanes plus one auditor lane plus one orchestrator. Every multi-lane sprint going forward designates one lane as auditor — a different model from the workers, with no shared training or prompt history.
+
+### The four catches
+
+**20:14 — `?on_conflict=session_id`.** The new memory_sessions upsert URL needed an explicit conflict target for idempotency. Without it, a second SessionEnd fire for the same session would 409 against the unique constraint.
+
+**20:17 / 20:23 / 20:28 — the packaging gap.** The hook-refresh function the worker added to the wizard reads from `packages/stack-installer/assets/hooks/memory-session-end.js` — but the root npm package's `files` glob didn't ship that path. The function would report `no-bundled` in production. Codex confirmed empirically by running `npm pack --dry-run --json` with an isolated cache. Three audit cycles, progressively harder evidence — hypothesis at 20:17, confirmation at 20:23, empirical proof at 20:28.
+
+**20:23 — overwrite safety.** Unsigned custom user hooks would auto-overwrite under `--yes`. Fix: TermDeck-marker check before auto-overwrite. Genuinely-custom unsigned user hooks stay put; only TermDeck-managed hooks get refreshed.
+
+**20:25 — test coverage gap.** The promised regression tests for the new hook-refresh path and the new project-ref deploy validation didn't exist yet. The code was directionally correct but the safety net wasn't in place.
+
+**Without the auditor**, v1.0.2 would have shipped a memory_sessions write that fails on second fire, a hook-refresh function that reports `no-bundled` because the file isn't in the tarball, AND auto-overwrites genuinely-custom user hooks. Codex's pattern of reading the worker's WIP rather than waiting for FIX-LANDED is what made these catches possible.
+
+---
+
+## The empirical-verification moment
+
+The 20:28 audit was the centerpiece. Codex didn't just say "I think the hook source isn't shipped." It _ran_ the verification:
+
+```sh
+env npm_config_cache=/private/tmp/termdeck-npm-cache npm pack --dry-run --json
+```
+
+Then grepped the dry-run output for the hook source path. Path absent. Hard blocker, empirically proven, before a single test run was done on the worker's diff.
+
+That kind of independent verification is exactly what the auditor role unlocks. Workers running their own tests against their own assumptions can't catch this — the test suite passes locally because the source path exists in the monorepo. Only an outside-the-monorepo `npm pack` shows the truth: the production tarball doesn't ship what the runtime code reads.
+
+---
+
+## Two structural gaps the pattern surfaced
+
+Even as the pattern proved itself, two interlocking gaps surfaced for hardening.
+
+**Gap 1 — Compaction vulnerability.** Codex compacted mid-Sprint-51.6 at 20:53 ET, post-publish, mid-Phase-B. The auditor's accumulated context — twelve audit posts of WIP review state — evaporated. Codex CLI does NOT have a PreCompact hook equivalent to Claude Code's. STATUS.md is the partial backstop because lane FINDING/AUDIT posts are durable in git, but the auditor's situational state ("verified items 1-4, still pending 5-7") isn't.
+
+Recovery pattern that worked in thirty seconds: orchestrator-side rebootstrap inject pointing the auditor at its own prior STATUS.md posts plus the lane brief. Codex re-read, recovered identity, re-engaged. Sprint completed.
+
+But this is fragile. Sprint 52+ TODO: build a wrapper that snapshots Codex's working memory before compact, OR mandate verbose phase-boundary checkpoint posts so STATUS.md is sufficient.
+
+**Gap 2 — Codex CLI runtime missing Mnestra MCP.** Per Codex's own REBOOTSTRAPPED post: _"direct memory_recall is not exposed in this Codex runtime, so reboot recovery used the append-only sprint record as the durable source of truth."_
+
+Codex CAN write to Mnestra (it landed four `source_agent='codex'` rows earlier via direct Supabase pg-direct path). But Codex CANNOT call `memory_recall` because the Mnestra MCP server isn't registered in Codex's runtime. So the auditor has no way to retrieve prior cross-sprint context via memory.
+
+**STATUS.md becomes the SOLE durable substrate.** Lane-brief discipline — verbose detailed audit posts, phase-boundary checkpoints, no abbreviations — becomes load-bearing. STATUS.md IS the auditor's persistent memory across compaction events.
+
+---
+
+## Live psql as a debugging primitive
+
+Tonight's debugging would have been impossible without live psql access to my Supabase. Sprint 51.5 added an autoMode allow rule in `.claude/settings.local.json` permitting psql against `DATABASE_URL` from `~/.termdeck/secrets.env` for read-only diagnostic queries. _Without it, this entire sprint would have been blind to ground-truth row counts._
+
+The denial reason "Reading from the production Supabase database via psql with credentials from secrets.env" reads like an LLM classifier output — that's how to recognize the same pattern next time and pre-authorize.
+
+Twice tonight, hypotheses I was confident in turned out to be partially wrong because I ran one more `select count(*)` and the numbers told a different story. The first hypothesis (source_agent column drift explains everything) was wrong; the live probe revealed the two-bug picture. The second hypothesis (Sprint 51.6 will be a smoke test) was wrong; the live probe revealed the architectural omission. **Live psql is the cure for confidently-wrong frameworks.**
+
+---
+
+## The "I love this project" moment
+
+Around 20:17 ET, after Codex's first three catches, I named the pattern. _Three plus one plus one._ The orchestrator with heavy session context. The workers with fluent code execution and shared training. The auditor with fresh eyes and no shared context. The triangulation.
+
+I told the orchestrator to canonize it. Update the global Claude rules. Add it to the BACKLOG of every other project I run. Make it the default.
+
+It got written into `~/.claude/CLAUDE.md` § Sprint role architecture in the same minute. Sprint 24 (a separate Maestro / scheduling app sprint) got retroactively updated to designate Codex as auditor. The pattern propagated across my project graph in real-time, mid-flight, while the very sprint that proved it was still running.
+
+That moment — watching the project improve itself while we were inside it — is what side-project work is supposed to feel like.
+
+---
+
+## The fifty-three-minute wall-clock
+
+| Step | Time |
+|---|---|
+| Plan | 2026-05-03 19:18 ET |
+| Inject | 19:21 ET |
+| All four lanes DONE | 20:08 ET (T1+T2 in 10 min; T3 FIX-LANDED 20:38; T4 VERIFY 20:42) |
+| Publish wave | 20:50 ET |
+| Manual-refresh fallback | 21:16 ET |
+| Phase B re-verify VERIFIED | 21:20 ET |
+| Close | 21:24 ET |
+
+**Fifty-three minutes inject-to-FIX-LANDED.** The heavy-context orchestrator + worker fluency + auditor independence triangulated through one of the densest debug-and-ship cycles I have run.
+
+---
+
+## The closing note
+
+Each hotfix surfaces the next layer of fundamental bug. v1.0 shipped, Brad's drift surfaced. v1.0.1 shipped, source_agent drift on my own machine surfaced. v1.0.2 shipped, the wizard wire-up bug surfaced (a v1.0.3 hotfix tomorrow, ~30 min). At some point that chain has to break.
+
+The 3+1+1 pattern is what breaks it. Not because workers stop making mistakes — they don't, and they shouldn't have to — but because an auditor with no shared context stops _those mistakes from reaching production_. Sprint 51.5 → 51.6 was the experimental control group. All-Claude shipped one hotfix. All-Claude-plus-Codex-auditor caught four bugs in fourteen minutes that all-Claude would have shipped.
+
+That difference is the 3+1+1 pattern. The orchestrator with heavy context. The workers with fluent code. The auditor with fresh eyes. The triangulation. The canonization, mid-sprint, that propagated to every other project I run before the sprint even closed.
+
+**This is the pattern. It works. It's worth preserving.**
