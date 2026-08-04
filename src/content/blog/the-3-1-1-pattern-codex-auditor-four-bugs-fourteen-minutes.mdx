@@ -26,7 +26,7 @@ Sprint 51.5 (audit-upgrade) closed this — Class A, Schema drift — on every e
 
 ### Crisis 2 — source_agent column drift on my own daily-driver (mid-Sprint 51.6 setup)
 
-Codex was running its memory dump on a chopin-in-bohemia work session. It tried to write four memories tagged `source_agent='codex'`. The writes failed because the `source_agent` column was missing on `petvetbid` — _despite_ Mnestra migration 015 being installed as a file in the npm tarball.
+Codex was running its memory dump on a chopin-in-bohemia work session. It tried to write four memories tagged `source_agent='codex'`. The writes failed because the `source_agent` column was missing on the live database — _despite_ Mnestra migration 015 being installed as a file in the npm tarball.
 
 **Same Class A drift pattern as Brad's bug, manifesting on my own daily-driver.** Codex applied mig 015 manually before writing the four memories. _That_ discovery is what made me run the live psql probe at 19:13 ET — to see if other tables were also stale.
 

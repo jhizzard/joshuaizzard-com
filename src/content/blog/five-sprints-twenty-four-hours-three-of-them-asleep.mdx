@@ -21,7 +21,7 @@ The orchestrator is the part that matters at 11 PM. The lane workers are doing t
 1. Fire the four-panel inject without me there to press Enter.
 2. Watch STATUS.md for FINDING / FIX-PROPOSED / DONE entries from each lane.
 3. Nudge any lane that goes stale 7+ minutes between turns.
-4. At close: run the test suite, apply migrations to live `petvetbid` Supabase, bump versions, write the CHANGELOG entry, draft a session-end email, commit.
+4. At close: run the test suite, apply migrations to the live Supabase project, bump versions, write the CHANGELOG entry, draft a session-end email, commit.
 5. *Not* publish to npm. *Not* push if tests fail. *Not* enable a cron that the lane brief said needs human verification.
 
 That last bullet is the trust contract. The orchestrator can do everything except a small set of irreversible things. Those wait for me.
@@ -97,7 +97,7 @@ Inject at 12:51 ET. Last lane reported DONE at 13:01.
 
 The fastest sprint in the project's history. Beat the prior record (Sprint 38, twenty-three minutes) by fourteen minutes. All four panels reached `status: thinking` simultaneously on first attempt — no `/poke` recovery, no mid-sprint nudge.
 
-The orchestrator's close-out (which I wasn't asleep for this time, but could have been): apply migration 012 to live `petvetbid`, then 013, then run the LLM classifier. Forty-five batches × twenty rows each. Eight hundred ninety-six rows reclassified. Zero errors. Zero invalid responses. **Eighteen cents of Anthropic spend.**
+The orchestrator's close-out (which I wasn't asleep for this time, but could have been): apply migration 012 to the live database, then 013, then run the LLM classifier. Forty-five batches × twenty rows each. Eight hundred ninety-six rows reclassified. Zero errors. Zero invalid responses. **Eighteen cents of Anthropic spend.**
 
 Final delta: `chopin-nashville` count **957 → 40**. The forty rows that survived are the Haiku-confirmed legitimate competition-management content — actual Performances, Sponsors, Jury work. The junk drawer is closed.
 
