@@ -25,6 +25,14 @@ export const metadata: Metadata = {
   },
 };
 
+const personJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: "Joshua Izzard",
+  url: "https://joshuaizzard.com",
+  sameAs: ["https://github.com/jhizzard"],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,6 +41,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark h-full">
       <body className="min-h-svh flex flex-col bg-background text-foreground">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(personJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
         <NavBar />
         {children}
       </body>
