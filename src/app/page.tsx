@@ -234,6 +234,13 @@ const swatches = [
   { color: "bg-jz-accent-amber", label: "Amber" },
 ];
 
+/* Spans marked with backticks in project copy render as <code>, never as raw marks. */
+function withInlineCode(text: string) {
+  return text
+    .split("`")
+    .map((part, i) => (i % 2 === 1 ? <code key={i}>{part}</code> : part));
+}
+
 function ProjectCard({ p }: { p: Project }) {
   return (
     <Card className="group flex flex-col border-border bg-card transition-colors duration-150 hover:border-[var(--jz-accent-blue)]">
@@ -254,7 +261,7 @@ function ProjectCard({ p }: { p: Project }) {
       </CardHeader>
       <CardContent className="flex-1">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          {p.description}
+          {withInlineCode(p.description)}
         </p>
         <div className="mt-4 flex flex-wrap gap-1.5">
           {p.tech.map((t) => (
