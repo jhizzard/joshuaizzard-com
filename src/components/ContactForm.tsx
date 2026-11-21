@@ -125,7 +125,7 @@ export default function ContactForm() {
 
             {status === "error" && (
               <p className="text-sm text-red-500">
-                Something went wrong, try again.
+                Your message was not sent.
               </p>
             )}
 

@@ -53,13 +53,18 @@ export async function POST(request: NextRequest) {
     timestamps.push(now);
     rateMap.set(ip, timestamps);
 
-    // Send email via Resend
-    await getResend().emails.send({
+    // Send email via Resend. The SDK returns API failures as { error } instead of throwing.
+    const { error } = await getResend().emails.send({
       from: '"joshuaizzard.com" <onboarding@resend.dev>',
       to: process.env.CONTACT_EMAIL!,
       subject: `[joshuaizzard.com] ${name}`,
       text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
     });
+
+    if (error) {
+      console.error("[contact] send failed:", error);
+      return NextResponse.json({ error: "Failed to send" }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
